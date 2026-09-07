@@ -1,0 +1,100 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+
+// Private circuit arguments remain in the prover. Only values explicitly
+// disclosed into the ledger below become public.
+export new type AdminSecret = Bytes<32>;
+export new type CompanySecret = Bytes<32>;
+export new type RolePublicKey = Bytes<32>;
+export new type SnapshotCommitment = Bytes<32>;
+
+export ledger currentRound: Uint<16>;
+export ledger approvedRound: Uint<16>;
+export ledger snapshotCommitment: SnapshotCommitment;
+export ledger companyId: Bytes<32>;
+export ledger adminPublicKey: RolePublicKey;
+export ledger companyPublicKey: RolePublicKey;
+
+constructor(
+    adminSecret: AdminSecret,
+    companySecret: CompanySecret,
+    initialCompanyId: Bytes<32>,
+    initialCommitment: SnapshotCommitment
+) {
+    currentRound = 1;
+    approvedRound = 0;
+    companyId = disclose(initialCompanyId);
+    snapshotCommitment = disclose(initialCommitment);
+    adminPublicKey = disclose(deriveAdminPublicKey(adminSecret));
+    companyPublicKey = disclose(deriveCompanyPublicKey(companySecret));
+}
+
+export pure circuit deriveAdminPublicKey(secret: AdminSecret): RolePublicKey {
+    return persistentHash<[Bytes<17>, AdminSecret]>(["covenant:admin:v1", secret]) as RolePublicKey;
+}
+
+export pure circuit deriveCompanyPublicKey(secret: CompanySecret): RolePublicKey {
+    return persistentHash<[Bytes<19>, CompanySecret]>(["covenant:company:v1", secret]) as RolePublicKey;
+}
+
+export pure circuit makeSnapshotCommitment(
+    snapshotCompanyId: Bytes<32>,
+    round: Uint<16>,
+    unrestrictedCash: Uint<32>,
+    scheduledPayments: Uint<32>,
+    blinding: Bytes<32>
+): SnapshotCommitment {
+    return persistentHash<[Bytes<32>, Uint<16>, Uint<32>, Uint<32>, Bytes<32>]>([
+        snapshotCompanyId,
+        round,
+        unrestrictedCash,
+        scheduledPayments,
+        blinding
+    ]) as SnapshotCommitment;
+}
+
+export circuit advanceSnapshot(
+    newCommitment: SnapshotCommitment,
+    adminSecret: AdminSecret
+): [] {
+    assert(
+        adminPublicKey == deriveAdminPublicKey(adminSecret),
+        "UNAUTHORIZED"
+    );
+    assert(currentRound < 65535, "ROUND_LIMIT_REACHED");
+    currentRound = currentRound + 1;
+    snapshotCommitment = disclose(newCommitment);
+}
+
+export circuit verifyAndApprove(
+    submittedCompanyId: Bytes<32>,
+    submittedRound: Uint<16>,
+    unrestrictedCash: Uint<32>,
+    scheduledPayments: Uint<32>,
+    blinding: Bytes<32>,
+    companySecret: CompanySecret
+): [] {
+    assert(
+        companyPublicKey == deriveCompanyPublicKey(companySecret),
+        "UNAUTHORIZED"
+    );
+    assert(disclose(submittedRound) == currentRound, "STALE_DATA");
+    assert(disclose(submittedCompanyId) == companyId, "DATA_MISMATCH");
+    assert(
+        disclose(makeSnapshotCommitment(
+            submittedCompanyId,
+            submittedRound,
+            unrestrictedCash,
+            scheduledPayments,
+            blinding
+        )) == snapshotCommitment,
+        "DATA_MISMATCH"
+    );
+    assert(scheduledPayments > 0, "INVALID_PAYMENT_AMOUNT");
+    assert(unrestrictedCash <= 1000000, "AMOUNT_OUT_OF_RANGE");
+    assert(scheduledPayments <= 1000000, "AMOUNT_OUT_OF_RANGE");
+    assert(approvedRound != currentRound, "ALREADY_APPROVED");
+    // C >= P * 1.2, expressed without decimal arithmetic.
+    assert(5 * unrestrictedCash >= 6 * scheduledPayments, "INSUFFICIENT_CASH");
+    approvedRound = currentRound;
+}

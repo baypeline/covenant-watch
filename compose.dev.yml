@@ -1,0 +1,28 @@
+services:
+  web:
+    build:
+      context: .
+      target: development
+    command: pnpm dev --hostname 0.0.0.0
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_APP_MODE: demo
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - .:/workspace
+      - covenant_node_modules:/workspace/node_modules
+      - covenant_web_next:/workspace/.next
+    depends_on: []
+
+  proof-server:
+    profiles: ["chain"]
+
+  indexer:
+    profiles: ["chain"]
+
+  node:
+    profiles: ["chain"]
+
+volumes:
+  covenant_node_modules:
+  covenant_web_next:

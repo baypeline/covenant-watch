@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.local
+.pnpm-store/
+contract/src/managed/
+contract/zkir/
+contract/keys/
+.midnight-state.json
+*.log

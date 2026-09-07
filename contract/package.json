@@ -1,0 +1,23 @@
+{
+  "name": "@covenant-watch/contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "compact": "compact compile src/covenant-watch.compact src/managed/covenant-watch",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:compile": "pnpm compact && vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "^0.16.0",
+    "@midnight-ntwrk/midnight-js-protocol": "4.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^4.0.15"
+  }
+}
