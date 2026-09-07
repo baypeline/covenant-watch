@@ -12,7 +12,7 @@ services:
       - .:/workspace
       - covenant_node_modules:/workspace/node_modules
       - covenant_web_next:/workspace/.next
-    depends_on: []
+    depends_on: !reset []
 
   proof-server:
     profiles: ["chain"]

@@ -8,7 +8,8 @@ services:
     environment:
       NEXT_PUBLIC_APP_MODE: ${NEXT_PUBLIC_APP_MODE:-demo}
       MIDNIGHT_NETWORK_ID: ${MIDNIGHT_NETWORK_ID:-undeployed}
-      MIDNIGHT_INDEXER_URL: ${MIDNIGHT_INDEXER_URL:-http://indexer:8088/api/v3/graphql}
+      MIDNIGHT_INDEXER_URL: ${MIDNIGHT_INDEXER_URL:-http://indexer:8088/api/v4/graphql}
+      MIDNIGHT_INDEXER_WS_URL: ${MIDNIGHT_INDEXER_WS_URL:-ws://indexer:8088/api/v4/graphql/ws}
       MIDNIGHT_NODE_URL: ${MIDNIGHT_NODE_URL:-ws://node:9944}
       MIDNIGHT_PROOF_SERVER_URL: ${MIDNIGHT_PROOF_SERVER_URL:-http://proof-server:6300}
       MIDNIGHT_CONTRACT_ADDRESS: ${MIDNIGHT_CONTRACT_ADDRESS:-}
