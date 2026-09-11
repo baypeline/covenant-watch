@@ -17,14 +17,17 @@ const globalStyles = css`
 
   :root {
     color-scheme: dark;
-    --ink: #f6f8f5;
-    --muted: #98a39e;
-    --line: rgba(255, 255, 255, 0.09);
-    --green: #8ef0b0;
-    --green-strong: #35d978;
-    --orange: #ffb36b;
-    --red: #ff7c72;
-    --surface: rgba(20, 27, 25, 0.82);
+    --canvas: #0b0f18;
+    --surface: #141b29;
+    --boundary: #586985;
+    --text-primary: #f2f5fa;
+    --text-secondary: #a9b4c6;
+    --proof: #9baeff;
+    --proof-hover: #b4c1ff;
+    --success: #67d7b0;
+    --warning: #f2c66d;
+    --danger: #ff8f92;
+    --line: rgba(88, 105, 133, 0.46);
     --font-pretendard: 'Pretendard Variable', Pretendard, -apple-system,
       BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-family: var(--font-pretendard);
@@ -46,7 +49,7 @@ const globalStyles = css`
   }
 
   html {
-    background: #09100e;
+    background: var(--canvas);
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
@@ -66,8 +69,8 @@ const globalStyles = css`
 
   body {
     min-width: 320px;
-    color: var(--ink);
-    background: #09100e;
+    color: var(--text-primary);
+    background: var(--canvas);
     font-family: var(--font-pretendard);
     line-height: 1.5;
   }
@@ -103,7 +106,7 @@ const globalStyles = css`
   input:focus-visible,
   textarea:focus-visible,
   select:focus-visible {
-    outline: 2px solid var(--green);
+    outline: 2px solid var(--proof);
     outline-offset: 3px;
   }
 
@@ -131,8 +134,8 @@ const globalStyles = css`
   }
 
   ::selection {
-    color: var(--ink);
-    background: rgba(142, 240, 176, 0.28);
+    color: var(--text-primary);
+    background: rgba(155, 174, 255, 0.28);
   }
 
   @media (prefers-reduced-motion: reduce) {
