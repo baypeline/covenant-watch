@@ -10,6 +10,14 @@ export type CovenantErrorCode = (typeof covenantErrorCodes)[number];
 export type ViewMode = 'company' | 'bank';
 export type CaseId = 'round-1-pass' | 'round-2-fail' | 'round-1-stale';
 export type RequestPhase = 'idle' | 'proving' | 'submitting' | 'confirmed' | 'rejected';
+export type OperationPhase =
+  | 'queued'
+  | 'proving'
+  | 'submitting'
+  | 'confirming'
+  | 'confirmed'
+  | 'rejected'
+  | 'unknown';
 
 export interface LedgerState {
   currentRound: number;
@@ -23,6 +31,28 @@ export interface LedgerState {
 
 export interface VerifyRequest {
   caseId: CaseId;
+}
+
+export interface StartVerifyRequest extends VerifyRequest {
+  requestId: string;
+  expectedRound: number;
+}
+
+export interface VerificationOperation {
+  operationId: string;
+  phase: OperationPhase;
+  submittedRound: number;
+  transactionId: string | null;
+  code: CovenantErrorCode | null;
+  message: string | null;
+  state: LedgerState | null;
+  updatedAt: string;
+}
+
+export interface StartVerifyResponse {
+  operationId: string;
+  phase: OperationPhase;
+  submittedRound: number;
 }
 
 export type VerifyResponse =
@@ -45,7 +75,14 @@ export interface AdvanceResponse {
 
 export interface ApiError {
   ok: false;
-  code: 'BAD_REQUEST' | 'INTERNAL_ERROR' | 'CHAIN_NOT_CONFIGURED';
+  code:
+    | 'BAD_REQUEST'
+    | 'INTERNAL_ERROR'
+    | 'CHAIN_NOT_CONFIGURED'
+    | 'STATE_CHANGED'
+    | 'BUSY'
+    | 'IDEMPOTENCY_CONFLICT'
+    | 'OPERATION_NOT_FOUND';
   message: string;
 }
 

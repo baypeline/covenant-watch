@@ -122,6 +122,24 @@ pnpm phase2:verify
 
 이 명령은 새 계약 배포, 1기 정상 승인, 2기 자료 전환, 2기 현금 부족 거절, 1기 자료 재사용 거절을 실제 회로와 로컬 체인에서 순서대로 실행합니다. 거절된 두 장면에는 거래 ID가 생성되지 않고, 최종 원장은 `currentRound=2`, `approvedRound=1`을 유지해야 성공합니다. 공개 결과는 `.covenant-runtime/phase2-demo.json`에 기록됩니다.
 
+## 비동기 검증 API
+
+검증은 장시간 걸리는 증명 생성을 HTTP 요청 수명과 분리합니다. `POST /api/verify`에 `caseId`, 클라이언트가 생성한 `requestId`, 화면이 읽은 `expectedRound`를 보내면 `202 Accepted`와 `operationId`를 반환합니다. 이후 `GET /api/verify/{operationId}`를 폴링해 다음 상태를 추적합니다.
+
+```text
+queued → proving → submitting → confirming → confirmed
+                                └──────────→ rejected
+                     통신 결과 불명 ──────→ unknown
+```
+
+같은 본문의 `requestId` 재시도는 최초 작업을 반환하고, 다른 본문으로 재사용하면 `IDEMPOTENCY_CONFLICT`입니다. 동시에 하나의 작업만 허용하며, 요청 준비 후 기간이 바뀌면 각각 `BUSY`, `STATE_CHANGED`로 거절합니다. 작업 기록은 기본적으로 `.covenant-runtime/operations.json`에 원자적으로 저장하고 비공개 금액이나 비밀값을 포함하지 않습니다. 서버가 미완료 작업을 읽으면 자동 재제출하지 않고 `unknown`으로 복구합니다.
+
+```bash
+pnpm phase3:verify
+```
+
+이 게이트는 타입 검사, idempotency·동시성·재시작·오류 매핑 테스트, 프로덕션 빌드를 실행합니다.
+
 ## 3분 데모 순서
 
 1. `1기 · 정상 자료`를 검증해 1기 승인을 만듭니다.
@@ -133,24 +151,23 @@ pnpm phase2:verify
 
 ## 연결 경계
 
-현재 웹 Route Handler는 UI와 발표 동선을 독립적으로 개발할 수 있도록 인메모리 데모 원장 어댑터를 사용합니다. Compact 계약은 실제 Midnight용 소스이며, 컴파일 시 생성되는 `contract/src/managed` 바인딩과 배포 주소를 Route Handler의 서버 어댑터에 연결하는 단계는 별도로 남겨 두었습니다. 즉, 화면의 `demo` 트랜잭션 식별자는 실제 체인 거래라고 표시해서는 안 됩니다.
+현재 웹 Route Handler는 UI와 발표 동선을 독립적으로 개발할 수 있도록 인메모리 데모 원장 어댑터를 사용합니다. Compact 계약은 실제 Midnight용 소스이며, 컴파일 시 생성되는 `contract/src/managed` 바인딩과 배포 주소를 Route Handler의 서버 어댑터에 연결하는 단계는 별도로 남겨 두었습니다. 즉, 화면의 `demo` 트랜잭션 식별자는 실제 체인 거래라고 표시해서는 안 됩니다. 실제 모드가 실패할 때 데모 모드로 자동 전환해서도 안 됩니다.
 
-실제 연결 시에도 응답 형태는 유지합니다.
+실제 연결 시에도 비동기 작업 경계는 유지합니다.
 
 ```ts
-getState(): LedgerState
-verifyAndApprove(caseId):
-  | { ok: true; transactionId: string; state: LedgerState }
-  | { ok: false; code: CovenantErrorCode; state: LedgerState }
+startVerification(caseId, requestId, expectedRound): StartVerifyResponse
+getVerification(operationId): VerificationOperation
 ```
 
-이 경계를 유지하면 프런트엔드 코드를 바꾸지 않고 `demo-ledger.ts`만 Midnight.js 기반 구현으로 교체할 수 있습니다.
+이 경계를 유지하면 프런트엔드 상태 추적을 바꾸지 않고 실행 어댑터만 Midnight.js 기반 구현으로 교체할 수 있습니다.
 
 ## 검증
 
 ```bash
 pnpm typecheck
 pnpm build
+pnpm test:api
 pnpm contract:test
 ```
 

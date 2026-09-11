@@ -12,6 +12,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test:api": "vitest run src/lib/server/*.test.ts",
     "typecheck:smoke": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck scripts/midnight-smoke.ts",
     "contract:compile": "pnpm --dir contract compact",
     "contract:test": "pnpm --dir contract test",
@@ -21,6 +22,7 @@
     "midnight:demo": "tsx scripts/midnight-smoke.ts --full-demo",
     "phase0:verify": "pnpm chain:up && pnpm contract:compile && pnpm midnight:smoke",
     "phase2:verify": "pnpm chain:up && pnpm contract:compile && pnpm midnight:demo",
+    "phase3:verify": "pnpm typecheck && pnpm test:api && pnpm build",
     "docker:dev": "docker compose -f compose.yml -f compose.dev.yml up --build",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down"
@@ -54,7 +56,8 @@
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "tsx": "4.23.1",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "4.1.11"
   },
   "pnpm": {
     "overrides": {
