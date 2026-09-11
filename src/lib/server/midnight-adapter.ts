@@ -25,7 +25,7 @@ import type { UnshieldedKeystore, WalletFacade } from '@midnight-ntwrk/wallet-sd
 import * as Rx from 'rxjs';
 import type { CaseId, CovenantErrorCode, LedgerState, VerifyResponse } from '@/types/covenant';
 import { cases } from '@/types/covenant';
-import type { CovenantAdapter } from './covenant-adapter';
+import type { CovenantAdapter, VerificationLifecycle } from './covenant-adapter';
 import {
   Contract,
   ledger as decodeLedger,
@@ -138,18 +138,19 @@ class MidnightAdapter implements CovenantAdapter {
     } satisfies LedgerState;
   }
 
-  async verify(caseId: CaseId): Promise<VerifyResponse> {
+  async verify(caseId: CaseId, lifecycle?: VerificationLifecycle): Promise<VerifyResponse> {
     const sample = cases[caseId];
     const blinding = sample.round === 1 ? this.secrets.roundOneBlinding : this.secrets.roundTwoBlinding;
     try {
-      const result = await this.contract.callTx.verifyAndApprove!(
-        fromHex(this.secrets.companyId),
-        BigInt(sample.round),
-        BigInt(sample.cash),
-        BigInt(sample.payments),
-        fromHex(blinding),
-        fromHex(this.secrets.companySecret),
-      );
+      const result = await this.wallet.withVerificationLifecycle(lifecycle, () =>
+        this.contract.callTx.verifyAndApprove!(
+          fromHex(this.secrets.companyId),
+          BigInt(sample.round),
+          BigInt(sample.cash),
+          BigInt(sample.payments),
+          fromHex(blinding),
+          fromHex(this.secrets.companySecret),
+        ));
       this.secrets.lastTransactionId = result.public.txId;
       this.secrets.updatedAt = new Date().toISOString();
       writeSecrets(this.secretsFile, this.secrets);
@@ -241,6 +242,8 @@ function getEnvironment(networkId: string): EnvironmentConfiguration {
 }
 
 class LocalWallet implements WalletProvider, MidnightProvider {
+  private verificationLifecycle?: VerificationLifecycle;
+
   private constructor(
     readonly wallet: WalletFacade,
     private readonly shieldedKeys: ZswapSecretKeys,
@@ -286,7 +289,21 @@ class LocalWallet implements WalletProvider, MidnightProvider {
     return this.wallet.finalizeRecipe(signed);
   }
 
-  submitTx(tx: FinalizedTransaction) { return this.wallet.submitTransaction(tx); }
+  async submitTx(tx: FinalizedTransaction) {
+    this.verificationLifecycle?.onSubmitting();
+    const transactionId = await this.wallet.submitTransaction(tx);
+    this.verificationLifecycle?.onSubmitted(transactionId);
+    return transactionId;
+  }
+
+  async withVerificationLifecycle<T>(lifecycle: VerificationLifecycle | undefined, action: () => Promise<T>) {
+    this.verificationLifecycle = lifecycle;
+    try {
+      return await action();
+    } finally {
+      this.verificationLifecycle = undefined;
+    }
+  }
   stop() { return this.wallet.stop(); }
 
   private async waitUntilSynced() {

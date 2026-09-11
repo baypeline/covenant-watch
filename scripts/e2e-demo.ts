@@ -96,7 +96,7 @@ async function startAndWait(caseId: string, requestId: string, expectedRound: nu
   assert(accepted.status === 202, `verification was not accepted: ${JSON.stringify(accepted.body)}`);
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const operation = await api(`/api/verify/${accepted.body.operationId}`);
-    if (['confirmed', 'rejected', 'unknown'].includes(operation.body.phase)) return operation.body;
+    if (['confirmed', 'rejected', 'error', 'unknown'].includes(operation.body.phase)) return operation.body;
     await delay(50);
   }
   throw new Error(`operation ${accepted.body.operationId} did not finish`);

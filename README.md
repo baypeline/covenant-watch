@@ -131,6 +131,7 @@ pnpm phase2:verify
 ```text
 queued → proving → submitting → confirming → confirmed
                                 └──────────→ rejected
+         제출 전 오류 ───────────────────→ error
                      통신 결과 불명 ──────→ unknown
 ```
 
@@ -154,7 +155,7 @@ COVENANT_ADAPTER=midnight NEXT_PUBLIC_APP_MODE=midnight pnpm dev
 
 `undeployed` 네트워크에서는 로컬 genesis 지갑만 사용합니다. 다른 네트워크에서는 `MIDNIGHT_WALLET_SEED`와 `MIDNIGHT_PRIVATE_STATE_PASSWORD`를 반드시 별도 비밀 저장소로 주입해야 합니다. 계약 역할 비밀값과 각 기간의 blinding은 권한 `0600`의 `.covenant-runtime/midnight-runtime.json`에 저장되며 API 응답이나 작업 파일에는 기록하지 않습니다.
 
-브라우저는 검증을 접수한 뒤 작업 API를 750ms 간격으로 폴링합니다. 임의의 진행 연출 타이머는 없으며 서버가 보고한 단계만 표시합니다. 완료 화면에서는 operation ID, 제출 기간, 실제 transaction ID, 마지막 확인 시각을 공개 증거로 보여줍니다. 상단 증거 흐름선은 비공개 입력이 증명을 거쳐 공개 원장 사실로 바뀌는 경계를 시각화합니다.
+브라우저는 검증을 접수한 뒤 작업 API를 750ms 간격으로 폴링합니다. 임의의 진행 연출 타이머는 없으며 서버가 보고한 단계만 표시합니다. 실제 어댑터는 지갑의 제출 직전과 transaction ID 수신 시점에 각각 `submitting`, `confirming`을 원자 기록합니다. 제출 전에 중단되면 `error`, 제출 시도 후 불명확하면 `unknown`으로 구분합니다. 완료 화면에서는 operation ID, 제출 기간, 실제 transaction ID, 마지막 확인 시각을 공개 증거로 보여줍니다.
 
 브라우저 새로고침 복구를 위해 operation ID, request ID, 계약 주소만 `sessionStorage`에 보관합니다. 금액·salt·권한 비밀값과 승인 상태는 저장하지 않으며, 계약 주소가 바뀌면 이전 작업 포인터를 폐기합니다.
 

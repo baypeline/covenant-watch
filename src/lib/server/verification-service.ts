@@ -9,8 +9,9 @@ import type {
 } from '@/types/covenant';
 import { cases } from '@/types/covenant';
 import { OperationStore, toPublicOperation, type StoredOperation } from './operation-store';
+import type { VerificationLifecycle } from './covenant-adapter';
 
-export type VerificationExecutor = (caseId: CaseId) => Promise<VerifyResponse>;
+export type VerificationExecutor = (caseId: CaseId, lifecycle: VerificationLifecycle) => Promise<VerifyResponse>;
 
 export class VerificationServiceError extends Error {
   constructor(
@@ -100,9 +101,13 @@ export class VerificationService {
     if (!operation) return;
     try {
       this.store.update(operationId, { phase: 'proving' });
-      // Persist submitting before invoking an adapter that may broadcast a transaction.
-      this.store.update(operationId, { phase: 'submitting' });
-      const result = await this.executeVerification(operation.caseId);
+      const result = await this.executeVerification(operation.caseId, {
+        // The wallet calls this immediately before broadcasting the balanced transaction.
+        onSubmitting: () => { this.store.update(operationId, { phase: 'submitting' }); },
+        onSubmitted: (transactionId) => {
+          this.store.update(operationId, { phase: 'confirming', transactionId });
+        },
+      });
       if (!result.ok) {
         this.store.update(operationId, {
           phase: 'rejected',
@@ -113,18 +118,18 @@ export class VerificationService {
         return;
       }
       this.store.update(operationId, {
-        phase: 'confirming',
-        transactionId: result.transactionId,
-      });
-      this.store.update(operationId, {
         phase: 'confirmed',
         transactionId: result.transactionId,
         state: result.state,
       });
     } catch {
+      const wasSubmitted = this.store.get(operationId)?.phase === 'submitting'
+        || this.store.get(operationId)?.phase === 'confirming';
       this.store.update(operationId, {
-        phase: 'unknown',
-        message: '제출 결과를 확정할 수 없습니다. 자동으로 재제출하지 않습니다.',
+        phase: wasSubmitted ? 'unknown' : 'error',
+        message: wasSubmitted
+          ? '제출 결과를 확정할 수 없습니다. 자동으로 재제출하지 않습니다.'
+          : '증명 또는 거래 준비 중 오류가 발생했으며 거래는 제출되지 않았습니다.',
       });
     }
   }

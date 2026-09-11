@@ -16,7 +16,14 @@ async function createAdapter(): Promise<CovenantAdapter> {
     return {
       mode: 'demo',
       getState: async () => readLedger(),
-      verify: async (caseId) => verifyDemoCase(caseId),
+      verify: async (caseId, lifecycle) => {
+        const result = verifyDemoCase(caseId);
+        if (result.ok) {
+          lifecycle?.onSubmitting();
+          lifecycle?.onSubmitted(result.transactionId);
+        }
+        return result;
+      },
       advance: async () => advanceDemoSnapshot(),
       reset: async () => resetDemoLedger(),
     };

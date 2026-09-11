@@ -39,7 +39,7 @@ export async function watchVerification(
   while (Date.now() < deadline) {
     const operation = await getVerification(operationId);
     onUpdate?.(operation);
-    if (['confirmed', 'rejected', 'unknown'].includes(operation.phase)) return operation;
+    if (['confirmed', 'rejected', 'error', 'unknown'].includes(operation.phase)) return operation;
     await new Promise((resolve) => setTimeout(resolve, 750));
   }
   throw new Error('검증 작업 확인 시간이 초과되었습니다. operationId로 다시 조회해 주세요.');

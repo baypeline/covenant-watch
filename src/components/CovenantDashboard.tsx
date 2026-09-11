@@ -96,6 +96,10 @@ export function CovenantDashboard() {
       });
       if (response.phase === 'unknown') throw new Error(response.message ?? '원장 확정 여부를 확인할 수 없습니다.');
       sessionStorage.removeItem('covenant-watch:operation');
+      if (response.phase === 'error') {
+        setRequestMessage(response.message ?? '거래 제출 전 처리 오류가 발생했습니다.');
+        return response;
+      }
       setResult({ ok: response.phase === 'confirmed', code: response.code ?? undefined });
       return response;
     },
@@ -144,6 +148,8 @@ export function CovenantDashboard() {
         setResult({ ok: refreshed.phase === 'confirmed', code: refreshed.code ?? undefined });
         sessionStorage.removeItem('covenant-watch:operation');
         await stateQuery.refetch();
+      } else if (refreshed.phase === 'error') {
+        sessionStorage.removeItem('covenant-watch:operation');
       }
     } catch {
       setRequestMessage('연결 오류 · 기존 결과를 최신 상태로 간주하지 않습니다.');
@@ -166,6 +172,9 @@ export function CovenantDashboard() {
       setRequestMessage(recovered.message);
       if (recovered.phase === 'confirmed' || recovered.phase === 'rejected') {
         setResult({ ok: recovered.phase === 'confirmed', code: recovered.code ?? undefined });
+        sessionStorage.removeItem('covenant-watch:operation');
+      } else if (recovered.phase === 'error') {
+        setRequestMessage(recovered.message ?? '거래 제출 전 처리 오류가 발생했습니다.');
         sessionStorage.removeItem('covenant-watch:operation');
       }
     } catch {
@@ -297,7 +306,7 @@ function Progress({ phase }: { phase: OperationPhase }) {
     { key: 'confirming', label: '원장 확정' },
   ];
   const effectivePhase = phase === 'confirmed' ? 'confirming' : phase;
-  const current = phase === 'rejected' || phase === 'unknown' ? 0 : Math.max(0, steps.findIndex((step) => step.key === effectivePhase));
+  const current = phase === 'rejected' || phase === 'error' || phase === 'unknown' ? 0 : Math.max(0, steps.findIndex((step) => step.key === effectivePhase));
   return <ProgressWrap>{steps.map((step, index) => <ProgressItem key={step.key} $active={index <= current} $current={index === current}><ProgressDot>{index < current ? <Check size={12} /> : index + 1}</ProgressDot><span>{step.label}</span>{index < steps.length - 1 && <ProgressLine $active={index < current} />}</ProgressItem>)}</ProgressWrap>;
 }
 
@@ -316,7 +325,7 @@ function ResultPanel({ result, state }: { result: { ok: boolean; code?: Covenant
 }
 
 function phaseLabel(phase: string) {
-  const labels: Record<string, string> = { idle: '검증 대기', queued: '작업 접수됨', proving: '증명 생성 중', submitting: '거래 제출 중', confirming: '원장 확정 확인 중', confirmed: '원장 확정', rejected: '조건 불충족', unknown: '확정 여부 확인 필요' };
+  const labels: Record<string, string> = { idle: '검증 대기', queued: '작업 접수됨', proving: '증명 생성 중', submitting: '거래 제출 중', confirming: '원장 확정 확인 중', confirmed: '원장 확정', rejected: '조건 불충족', error: '제출 전 처리 오류', unknown: '확정 여부 확인 필요' };
   return labels[phase] ?? phase;
 }
 function shorten(value?: string) { return value ? `${value.slice(0, 12)}…${value.slice(-8)}` : '—'; }

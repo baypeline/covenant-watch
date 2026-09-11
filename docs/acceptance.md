@@ -7,7 +7,7 @@
 | 0 기술 스파이크 | 실제 계약 주소·거래 ID·원장 조회 | 통과 |
 | 1 계약 확정 | 경계·변조·권한 회로 테스트 | 30/30 통과 |
 | 2 실제 어댑터·CLI | 실제 체인 3장면 | 통과 |
-| 3 비동기 API | confirmed/rejected/unknown, 멱등·복구 | 13/13 통과 |
+| 3 비동기 API | confirmed/rejected/error/unknown, 멱등·복구 | 14/14 통과 |
 | 4 UI 실제 연결 | 실제 원장 폴링·거래 증거 화면 | 통과 |
 | 5 E2E·보안 | 장애 주입·동시 요청·비밀 검사 | 통과 |
 | 6 배포·인계 | 새 Docker 빌드·외부 HTTPS·문서 | 임시 HTTPS 통과, 고정 URL 전환 필요 |
@@ -24,6 +24,10 @@
 - 4단계 웹 2기 전환 거래: `00c7ca1cd13dd421c56dc6fc6649a9ed24a4671f0b4a4b0cb930ff8c99f6634f4a`
 - 6단계 새 Docker 계약: `02e46abfa5a7b9c4c23175f5be85b4e871ceaa63baecc5789496cf5f82a031f2`
 - 6단계 Docker 배포 거래: `00a0b90ee3892a2f26d4c3992b20481398b8c26d921ffb6232273b60f7d432fb15`
+- 단계 추적 검수 operation: `a0e6d02a-cefa-4bba-9250-f980f89178a9`
+- 단계 추적 검수 승인 거래: `0047ec9bd810975f108024e8af40e0b65053a1496787c5244ae99a86fa347b20a1`
+
+단계 추적 검수에서는 실제 `proving`이 약 18.8초 지속됐고 승인 거래가 확정됐습니다. 로컬 Devnet의 지갑 제출부터 확정까지는 200ms 폴링보다 짧아 클라이언트 표본에서는 중간 상태가 생략됐지만, 서버는 지갑 `submitTx` 직전 `submitting`, transaction ID 수신 직후 `confirming`을 영속 기록합니다. 표시를 위한 인위적 지연은 사용하지 않습니다.
 
 ## 외부 HTTPS 확인
 

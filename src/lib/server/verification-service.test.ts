@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { LedgerState, VerifyResponse } from '@/types/covenant';
 import { OperationStore } from './operation-store';
-import { VerificationService, VerificationServiceError } from './verification-service';
+import { VerificationService, VerificationServiceError, type VerificationExecutor } from './verification-service';
 
 const temporaryDirectories: string[] = [];
 
@@ -89,8 +89,10 @@ describe('VerificationService', () => {
 
   it('marks an adapter failure unknown without resubmitting', async () => {
     let attempts = 0;
-    const { service, runNext } = fixture(async () => {
+    const { service, runNext } = fixture(async (_caseId, lifecycle) => {
       attempts += 1;
+      lifecycle.onSubmitting();
+      lifecycle.onSubmitted('tx-uncertain');
       throw new Error('connection lost after submit');
     });
     const accepted = await service.start(request('request-unknown'));
@@ -98,6 +100,18 @@ describe('VerificationService', () => {
     expect(service.get(accepted.operationId).phase).toBe('unknown');
     expect((await service.start(request('request-unknown'))).operationId).toBe(accepted.operationId);
     expect(attempts).toBe(1);
+  });
+
+  it('marks a proof failure as an unsubmitted error', async () => {
+    const { service, runNext } = fixture(async () => {
+      throw new Error('proof server unavailable');
+    });
+    const accepted = await service.start(request('request-proof-error'));
+    await runNext();
+    expect(service.get(accepted.operationId)).toMatchObject({
+      phase: 'error',
+      transactionId: null,
+    });
   });
 
   it('recovers an interrupted operation as unknown on restart', () => {
@@ -164,7 +178,7 @@ describe('VerificationService', () => {
   });
 });
 
-function fixture(executor: () => Promise<VerifyResponse>, state: Partial<LedgerState> = {}) {
+function fixture(executor: VerificationExecutor, state: Partial<LedgerState> = {}) {
   const directory = makeTemporaryDirectory();
   const storeFile = join(directory, 'operations.json');
   const scheduled: Array<() => void> = [];

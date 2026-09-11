@@ -16,6 +16,7 @@ export type OperationPhase =
   | 'confirming'
   | 'confirmed'
   | 'rejected'
+  | 'error'
   | 'unknown';
 export type RequestPhase = 'idle' | OperationPhase;
 

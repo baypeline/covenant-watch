@@ -21,7 +21,8 @@
 
 ## 장애 주입 결과
 
-- 제출 어댑터 예외: operation은 `unknown`, 동일 requestId 재시도는 같은 operation, 제출 시도는 1회
+- 거래 제출 이후 어댑터 예외: operation은 `unknown`, 동일 requestId 재시도는 같은 operation, 제출 시도는 1회
+- proof·거래 구성 단계 예외: transaction ID 없이 `error`로 종료하며 제출 후 불명 상태와 구분
 - 서버 재시작 중 `queued/proving/submitting/confirming`: 로드 시 `unknown`, 자동 재제출 없음
 - 동시 요청: 하나만 접수되고 나머지는 `409 BUSY`
 - 기간 변경: `409 STATE_CHANGED`
