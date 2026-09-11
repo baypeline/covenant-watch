@@ -34,6 +34,9 @@ import {
 const NETWORK_ID = 'undeployed';
 const GENESIS_WALLET_SEED = '0000000000000000000000000000000000000000000000000000000000000001';
 const PRIVATE_STATE_ID = 'covenantWatchSmokePrivateState';
+const indexerPort = process.env.COVENANT_INDEXER_PORT ?? '18088';
+const nodePort = process.env.COVENANT_NODE_PORT ?? '19944';
+const proofPort = process.env.COVENANT_PROOF_PORT ?? '16300';
 const runtimeDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.covenant-runtime');
 const zkConfigPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -47,12 +50,12 @@ const zkConfigPath = path.resolve(
 const environment: EnvironmentConfiguration = {
   walletNetworkId: NETWORK_ID,
   networkId: NETWORK_ID,
-  indexer: 'http://127.0.0.1:8088/api/v4/graphql',
-  indexerWS: 'ws://127.0.0.1:8088/api/v4/graphql/ws',
-  node: 'http://127.0.0.1:9944',
-  nodeWS: 'ws://127.0.0.1:9944',
+  indexer: `http://127.0.0.1:${indexerPort}/api/v4/graphql`,
+  indexerWS: `ws://127.0.0.1:${indexerPort}/api/v4/graphql/ws`,
+  node: `http://127.0.0.1:${nodePort}`,
+  nodeWS: `ws://127.0.0.1:${nodePort}`,
   faucet: '',
-  proofServer: 'http://127.0.0.1:6300',
+  proofServer: `http://127.0.0.1:${proofPort}`,
 };
 
 type CovenantCircuits = 'advanceSnapshot' | 'verifyAndApprove';

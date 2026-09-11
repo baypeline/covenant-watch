@@ -51,6 +51,8 @@ Docker 개발 환경은 다음처럼 실행합니다. 이 명령은 Next.js만 �
 docker compose -f compose.yml -f compose.dev.yml up --build
 ```
 
+Docker 웹은 <http://localhost:9923>으로 접속합니다. 호스트에 공개하는 기본 포트는 웹 `9923`, proof server `16300`, indexer `18088`, node `19944`이며 `.env`의 `COVENANT_*_PORT` 값으로 변경할 수 있습니다. 컨테이너 사이의 내부 포트는 변경하지 않습니다.
+
 Midnight 로컬 체인까지 함께 올리려면 `chain` 프로필을 추가합니다.
 
 ```bash
