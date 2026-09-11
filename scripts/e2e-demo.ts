@@ -56,6 +56,8 @@ try {
     body: JSON.stringify({ caseId: 'round-1-pass', requestId: 'e2e-round-one', expectedRound: 1 }),
   });
   assert(idempotentRetry.body.operationId === roundOne.operationId, 'idempotent retry created another operation');
+  const recoveredByRequest = await api('/api/verify?requestId=e2e-round-one');
+  assert(recoveredByRequest.body.operationId === roundOne.operationId, 'requestId recovery returned another operation');
 
   const advanced = await operatorApi('/api/admin/advance');
   assert(advanced.body.state.currentRound === 2 && advanced.body.state.approvedRound === 1, 'round advance failed');

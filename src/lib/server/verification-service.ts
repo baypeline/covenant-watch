@@ -72,6 +72,12 @@ export class VerificationService {
     return toPublicOperation(operation);
   }
 
+  getByRequestId(requestId: string): VerificationOperation {
+    const operation = this.store.findByRequestId(requestId);
+    if (!operation) throw new VerificationServiceError('OPERATION_NOT_FOUND', '검증 작업을 찾을 수 없습니다.');
+    return toPublicOperation(operation);
+  }
+
   assertIdle() {
     if (this.store.findActive()) {
       throw new VerificationServiceError('BUSY', '검증 작업 중에는 기간을 변경하거나 초기화할 수 없습니다.');

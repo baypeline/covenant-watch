@@ -21,7 +21,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { advanceSnapshot, getLedgerState, getVerification, resetDemo, startVerification, watchVerification } from '@/lib/api';
+import { advanceSnapshot, getLedgerState, getVerification, getVerificationByRequestId, resetDemo, startVerification, watchVerification } from '@/lib/api';
 import { useCovenantStore } from '@/stores/useCovenantStore';
 
 const errorCopy: Record<CovenantErrorCode, { title: string; body: string }> = {
@@ -36,8 +36,6 @@ interface SavedRequest {
   operationId?: string;
   requestId: string;
   contractAddress: string;
-  caseId: CaseId;
-  expectedRound: number;
 }
 
 export function CovenantDashboard() {
@@ -76,15 +74,13 @@ export function CovenantDashboard() {
       setOperation(null);
       setPhase('queued');
       const requestId = crypto.randomUUID();
-      const pending = { requestId, caseId, expectedRound: state.currentRound, contractAddress: state.contractAddress };
+      const pending = { requestId, contractAddress: state.contractAddress };
       setSavedRequest(pending);
       sessionStorage.setItem('covenant-watch:operation', JSON.stringify(pending));
       const accepted = await startVerification(caseId, state.currentRound, requestId);
       const saved = {
         operationId: accepted.operationId,
         requestId,
-        caseId,
-        expectedRound: state.currentRound,
         contractAddress: state.contractAddress,
       };
       setSavedRequest(saved);
@@ -158,15 +154,12 @@ export function CovenantDashboard() {
 
   async function recoverRequest(saved: SavedRequest) {
     try {
-      const operationId = saved.operationId ?? (await startVerification(
-        saved.caseId,
-        saved.expectedRound,
-        saved.requestId,
-      )).operationId;
-      const nextSaved = { ...saved, operationId };
+      const recovered = saved.operationId
+        ? await getVerification(saved.operationId)
+        : await getVerificationByRequestId(saved.requestId);
+      const nextSaved = { ...saved, operationId: recovered.operationId };
       setSavedRequest(nextSaved);
       sessionStorage.setItem('covenant-watch:operation', JSON.stringify(nextSaved));
-      const recovered = await getVerification(operationId);
       setOperation(recovered);
       setPhase(recovered.phase);
       setRequestMessage(recovered.message);

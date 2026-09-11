@@ -49,6 +49,10 @@ export async function getVerification(operationId: string): Promise<Verification
   return request<VerificationOperation>(`/api/verify/${encodeURIComponent(operationId)}`);
 }
 
+export async function getVerificationByRequestId(requestId: string): Promise<VerificationOperation> {
+  return request<VerificationOperation>(`/api/verify?requestId=${encodeURIComponent(requestId)}`);
+}
+
 export async function advanceSnapshot(): Promise<AdvanceResponse> {
   return request<AdvanceResponse>('/api/admin/advance', { method: 'POST' });
 }

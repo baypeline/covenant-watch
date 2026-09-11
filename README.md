@@ -124,7 +124,7 @@ pnpm phase2:verify
 
 ## 비동기 검증 API
 
-검증은 장시간 걸리는 증명 생성을 HTTP 요청 수명과 분리합니다. `POST /api/verify`에 `caseId`, 클라이언트가 생성한 `requestId`, 화면이 읽은 `expectedRound`를 보내면 `202 Accepted`와 `operationId`를 반환합니다. 이후 `GET /api/verify/{operationId}`를 폴링해 다음 상태를 추적합니다.
+검증은 장시간 걸리는 증명 생성을 HTTP 요청 수명과 분리합니다. `POST /api/verify`에 `caseId`, 클라이언트가 생성한 `requestId`, 화면이 읽은 `expectedRound`를 보내면 `202 Accepted`와 `operationId`를 반환합니다. 이후 `GET /api/verify/{operationId}`를 폴링해 다음 상태를 추적합니다. 접수 응답을 잃은 브라우저는 `GET /api/verify?requestId=...`로 기존 작업을 찾으며 POST를 자동 반복하지 않습니다.
 
 `GET /api/state`는 `mode`, `network`, `contractAddress`, 공개 원장 `state`, 실제 조회 시각 `fetchedAt`을 반환합니다. 조회가 실패하면 `503`, 오류 코드와 `state: null`을 반환하며 마지막 값을 최신 상태처럼 만들지 않습니다.
 

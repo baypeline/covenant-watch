@@ -37,6 +37,7 @@ describe('VerificationService', () => {
     const first = await service.start(request('request-retry'));
     const retry = await service.start(request('request-retry'));
     expect(retry.operationId).toBe(first.operationId);
+    expect(service.getByRequestId('request-retry').operationId).toBe(first.operationId);
   });
 
   it('rejects requestId reuse with a different body', async () => {
