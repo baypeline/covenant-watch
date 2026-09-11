@@ -2,7 +2,7 @@ pragma language_version >= 0.22 && <= 0.23;
 import CompactStandardLibrary;
 
 // Private circuit arguments remain in the prover. Only values explicitly
-// disclosed into the ledger below become public.
+// disclosed by a circuit can enter its public transcript or ledger state.
 export new type AdminSecret = Bytes<32>;
 export new type CompanySecret = Bytes<32>;
 export new type RolePublicKey = Bytes<32>;
@@ -11,7 +11,6 @@ export new type SnapshotCommitment = Bytes<32>;
 export ledger currentRound: Uint<16>;
 export ledger approvedRound: Uint<16>;
 export ledger snapshotCommitment: SnapshotCommitment;
-export ledger companyId: Bytes<32>;
 export ledger adminPublicKey: RolePublicKey;
 export ledger companyPublicKey: RolePublicKey;
 
@@ -23,18 +22,24 @@ constructor(
 ) {
     currentRound = 1;
     approvedRound = 0;
-    companyId = disclose(initialCompanyId);
     snapshotCommitment = disclose(initialCommitment);
     adminPublicKey = disclose(deriveAdminPublicKey(adminSecret));
-    companyPublicKey = disclose(deriveCompanyPublicKey(companySecret));
+    companyPublicKey = disclose(deriveCompanyPublicKey(initialCompanyId, companySecret));
 }
 
 export pure circuit deriveAdminPublicKey(secret: AdminSecret): RolePublicKey {
     return persistentHash<[Bytes<17>, AdminSecret]>(["covenant:admin:v1", secret]) as RolePublicKey;
 }
 
-export pure circuit deriveCompanyPublicKey(secret: CompanySecret): RolePublicKey {
-    return persistentHash<[Bytes<19>, CompanySecret]>(["covenant:company:v1", secret]) as RolePublicKey;
+export pure circuit deriveCompanyPublicKey(
+    identityCompanyId: Bytes<32>,
+    secret: CompanySecret
+): RolePublicKey {
+    return persistentHash<[Bytes<19>, Bytes<32>, CompanySecret]>([
+        "covenant:company:v1",
+        identityCompanyId,
+        secret
+    ]) as RolePublicKey;
 }
 
 export pure circuit makeSnapshotCommitment(
@@ -44,7 +49,8 @@ export pure circuit makeSnapshotCommitment(
     scheduledPayments: Uint<32>,
     blinding: Bytes<32>
 ): SnapshotCommitment {
-    return persistentHash<[Bytes<32>, Uint<16>, Uint<32>, Uint<32>, Bytes<32>]>([
+    return persistentHash<[Bytes<20>, Bytes<32>, Uint<16>, Uint<32>, Uint<32>, Bytes<32>]>([
+        "covenant:snapshot:v1",
         snapshotCompanyId,
         round,
         unrestrictedCash,
@@ -75,11 +81,10 @@ export circuit verifyAndApprove(
     companySecret: CompanySecret
 ): [] {
     assert(
-        companyPublicKey == deriveCompanyPublicKey(companySecret),
+        companyPublicKey == deriveCompanyPublicKey(submittedCompanyId, companySecret),
         "UNAUTHORIZED"
     );
     assert(disclose(submittedRound) == currentRound, "STALE_DATA");
-    assert(disclose(submittedCompanyId) == companyId, "DATA_MISMATCH");
     assert(
         disclose(makeSnapshotCommitment(
             submittedCompanyId,
