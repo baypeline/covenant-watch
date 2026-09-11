@@ -9,7 +9,6 @@ export const covenantErrorCodes = [
 export type CovenantErrorCode = (typeof covenantErrorCodes)[number];
 export type ViewMode = 'company' | 'bank';
 export type CaseId = 'round-1-pass' | 'round-2-fail' | 'round-1-stale';
-export type RequestPhase = 'idle' | 'proving' | 'submitting' | 'confirmed' | 'rejected';
 export type OperationPhase =
   | 'queued'
   | 'proving'
@@ -18,8 +17,10 @@ export type OperationPhase =
   | 'confirmed'
   | 'rejected'
   | 'unknown';
+export type RequestPhase = 'idle' | OperationPhase;
 
 export interface LedgerState {
+  mode: 'demo' | 'midnight';
   currentRound: number;
   approvedRound: number;
   snapshotCommitment: string;

@@ -2,7 +2,7 @@
 
 import styled from '@emotion/styled';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CaseId, CovenantErrorCode, LedgerState } from '@/types/covenant';
+import type { CaseId, CovenantErrorCode, LedgerState, OperationPhase, VerificationOperation } from '@/types/covenant';
 import { cases } from '@/types/covenant';
 import {
   ArrowRight,
@@ -12,6 +12,7 @@ import {
   CircleDot,
   Database,
   EyeOff,
+  Fingerprint,
   Landmark,
   LockKeyhole,
   RefreshCw,
@@ -19,7 +20,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useState } from 'react';
-import { advanceSnapshot, getLedgerState, resetDemo, verifyCovenant } from '@/lib/api';
+import { advanceSnapshot, getLedgerState, resetDemo, startVerification, watchVerification } from '@/lib/api';
 import { useCovenantStore } from '@/stores/useCovenantStore';
 
 const errorCopy: Record<CovenantErrorCode, { title: string; body: string }> = {
@@ -35,22 +36,27 @@ export function CovenantDashboard() {
   const { view, setView, selectedCase, setSelectedCase, phase, setPhase } = useCovenantStore();
   const [showLedger, setShowLedger] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; code?: CovenantErrorCode } | null>(null);
+  const [operation, setOperation] = useState<VerificationOperation | null>(null);
   const stateQuery = useQuery({ queryKey: ['ledger-state'], queryFn: getLedgerState, refetchInterval: 8_000 });
 
   const verifyMutation = useMutation({
     mutationFn: async (caseId: CaseId) => {
+      const state = await queryClient.fetchQuery({ queryKey: ['ledger-state'], queryFn: getLedgerState });
       setResult(null);
-      setPhase('proving');
-      await wait(650);
-      setPhase('submitting');
-      const response = await verifyCovenant(caseId);
-      await wait(450);
-      setPhase(response.ok ? 'confirmed' : 'rejected');
-      setResult({ ok: response.ok, code: response.ok ? undefined : response.code });
+      setOperation(null);
+      setPhase('queued');
+      const accepted = await startVerification(caseId, state.currentRound);
+      const response = await watchVerification(accepted.operationId, (next) => {
+        setOperation(next);
+        setPhase(next.phase);
+        if (next.state) queryClient.setQueryData(['ledger-state'], next.state);
+      });
+      if (response.phase === 'unknown') throw new Error(response.message ?? '원장 확정 여부를 확인할 수 없습니다.');
+      setResult({ ok: response.phase === 'confirmed', code: response.code ?? undefined });
       return response;
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['ledger-state'] }),
-    onError: () => setPhase('rejected'),
+    onError: () => setPhase('unknown'),
   });
 
   const advanceMutation = useMutation({
@@ -59,6 +65,7 @@ export function CovenantDashboard() {
       queryClient.setQueryData(['ledger-state'], state);
       setSelectedCase('round-2-fail');
       setResult(null);
+      setOperation(null);
     },
   });
 
@@ -68,6 +75,7 @@ export function CovenantDashboard() {
       queryClient.setQueryData(['ledger-state'], state);
       setSelectedCase('round-1-pass');
       setResult(null);
+      setOperation(null);
     },
   });
 
@@ -79,7 +87,7 @@ export function CovenantDashboard() {
     <PageShell>
       <Nav>
         <Brand><BrandMark><ShieldCheck size={20} /></BrandMark><span>Covenant Watch</span></Brand>
-        <NetworkPill><PulseDot /> Midnight Local Devnet</NetworkPill>
+        <NetworkPill><PulseDot $error={stateQuery.isError} /> {stateQuery.isError ? '원장 연결 실패' : state ? `${state.mode === 'midnight' ? 'Midnight 원장' : 'Demo 원장'} · ${state.network}` : '원장 연결 확인 중'}</NetworkPill>
       </Nav>
 
       <Main>
@@ -94,10 +102,18 @@ export function CovenantDashboard() {
           <SwitchButton $active={view === 'bank'} onClick={() => setView('bank')}><Landmark size={17} /> 은행 보기</SwitchButton>
         </ViewSwitch>
 
+        <ProofRail aria-label="검증 증거 흐름">
+          <RailNode><RailIcon><EyeOff size={16} /></RailIcon><span>기업 안에서</span><strong>금액 비공개</strong></RailNode>
+          <RailLink $active={phase !== 'idle'} />
+          <RailNode><RailIcon><Fingerprint size={16} /></RailIcon><span>증명 작업</span><strong>{phaseLabel(phase)}</strong></RailNode>
+          <RailLink $active={phase === 'confirming' || phase === 'confirmed'} />
+          <RailNode><RailIcon><Database size={16} /></RailIcon><span>공개 원장</span><strong>{state?.lastTransactionId ? '거래 증거 있음' : '승인 대기'}</strong></RailNode>
+        </ProofRail>
+
         <ContentGrid>
           <PrimaryCard>
             <CardTop>
-              <div><CardKicker>{view === 'company' ? 'COVENANT REQUEST' : 'MONITORING STATUS'}</CardKicker><CardTitle>{view === 'company' ? '약정 검증 및 모의 승인' : '약정 모니터링'}</CardTitle></div>
+              <div><CardKicker>{view === 'company' ? 'COVENANT REQUEST' : 'MONITORING STATUS'}</CardKicker><CardTitle>{view === 'company' ? `약정 검증 및 ${state?.mode === 'midnight' ? '원장 승인' : '데모 승인'}` : '약정 모니터링'}</CardTitle></div>
               <RoundBadge>{state?.currentRound ?? '—'}기</RoundBadge>
             </CardTop>
 
@@ -108,7 +124,7 @@ export function CovenantDashboard() {
                   {(Object.keys(cases) as CaseId[]).map((caseId) => {
                     const item = cases[caseId];
                     return (
-                      <CaseButton key={caseId} $selected={caseId === selectedCase} onClick={() => { setSelectedCase(caseId); setResult(null); }}>
+                      <CaseButton key={caseId} $selected={caseId === selectedCase} onClick={() => { setSelectedCase(caseId); setResult(null); setOperation(null); }}>
                         <Radio $selected={caseId === selectedCase}>{caseId === selectedCase && <CircleDot size={14} />}</Radio>
                         <CaseBody><CaseName>{item.label}</CaseName><CaseHint>{item.helper}</CaseHint></CaseBody>
                         <PrivateValues><span>C {item.cash}</span><span>P {item.payments}</span></PrivateValues>
@@ -121,10 +137,11 @@ export function CovenantDashboard() {
 
                 {phase !== 'idle' && <Progress phase={phase} />}
                 {result && <ResultPanel result={result} state={state} />}
+                {operation && <OperationEvidence operation={operation} />}
 
                 <ActionRow>
-                  <PrimaryButton disabled={busy} onClick={() => verifyMutation.mutate(selectedCase)}>
-                    <LockKeyhole size={18} />{verifyMutation.isPending ? '검증 진행 중…' : '검증 및 모의 승인'}<ArrowRight size={18} />
+                  <PrimaryButton disabled={busy || !state} onClick={() => verifyMutation.mutate(selectedCase)}>
+                    <LockKeyhole size={18} />{verifyMutation.isPending ? phaseLabel(phase) : '검증하고 원장에 기록'}<ArrowRight size={18} />
                   </PrimaryButton>
                   <SecondaryButton disabled={busy || state?.currentRound !== 1} onClick={() => advanceMutation.mutate()}><RefreshCw size={17} /> 2기 자료 등록</SecondaryButton>
                 </ActionRow>
@@ -176,22 +193,31 @@ export function CovenantDashboard() {
   );
 }
 
-function Progress({ phase }: { phase: string }) {
+function Progress({ phase }: { phase: OperationPhase }) {
   const steps = [
     { key: 'proving', label: '증명 생성' },
     { key: 'submitting', label: '거래 제출' },
-    { key: 'confirmed', label: '원장 확정' },
+    { key: 'confirming', label: '원장 확정' },
   ];
-  const current = phase === 'rejected' ? 0 : Math.max(0, steps.findIndex((step) => step.key === phase));
+  const effectivePhase = phase === 'confirmed' ? 'confirming' : phase;
+  const current = phase === 'rejected' || phase === 'unknown' ? 0 : Math.max(0, steps.findIndex((step) => step.key === effectivePhase));
   return <ProgressWrap>{steps.map((step, index) => <ProgressItem key={step.key} $active={index <= current} $current={index === current}><ProgressDot>{index < current ? <Check size={12} /> : index + 1}</ProgressDot><span>{step.label}</span>{index < steps.length - 1 && <ProgressLine $active={index < current} />}</ProgressItem>)}</ProgressWrap>;
+}
+
+function OperationEvidence({ operation }: { operation: VerificationOperation }) {
+  return <EvidenceBox><EvidenceTitle><Database size={15} /> 공개 검증 증거</EvidenceTitle><EvidenceGrid><div><span>작업 ID</span><code>{operation.operationId}</code></div><div><span>제출 기간</span><code>{operation.submittedRound}기</code></div><div><span>거래 ID</span><code>{operation.transactionId ?? '거래 생성 전'}</code></div><div><span>마지막 확인</span><code>{new Date(operation.updatedAt).toLocaleTimeString('ko-KR')}</code></div></EvidenceGrid></EvidenceBox>;
 }
 
 function ResultPanel({ result, state }: { result: { ok: boolean; code?: CovenantErrorCode }; state?: LedgerState }) {
   const copy = result.code ? errorCopy[result.code] : null;
-  return <ResultBox $success={result.ok}>{result.ok ? <Check size={20} /> : <EyeOff size={20} />}<div><strong>{result.ok ? `${state?.currentRound ?? ''}기 모의 승인 완료` : copy?.title}</strong><span>{result.ok ? '실제 원장 상태에 현재 기간 승인이 반영되었습니다.' : copy?.body}</span></div></ResultBox>;
+  const approvalLabel = state?.mode === 'midnight' ? '원장 승인 완료' : '데모 승인 완료';
+  return <ResultBox $success={result.ok}>{result.ok ? <Check size={20} /> : <EyeOff size={20} />}<div><strong>{result.ok ? `${state?.currentRound ?? ''}기 ${approvalLabel}` : copy?.title}</strong><span>{result.ok ? '공개 원장 상태에 현재 기간 승인이 반영되었습니다.' : copy?.body}</span></div></ResultBox>;
 }
 
-function wait(milliseconds: number) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
+function phaseLabel(phase: string) {
+  const labels: Record<string, string> = { idle: '검증 대기', queued: '작업 접수됨', proving: '증명 생성 중', submitting: '거래 제출 중', confirming: '원장 확정 확인 중', confirmed: '원장 확정', rejected: '조건 불충족', unknown: '확정 여부 확인 필요' };
+  return labels[phase] ?? phase;
+}
 function shorten(value?: string) { return value ? `${value.slice(0, 12)}…${value.slice(-8)}` : '—'; }
 
 const PageShell = styled.div`min-height:100vh;background:var(--canvas);position:relative;overflow:hidden;`;
@@ -199,15 +225,19 @@ const Nav = styled.nav`height:74px;border-bottom:1px solid var(--line);display:f
 const Brand = styled.div`display:flex;align-items:center;gap:11px;font-size:16px;font-weight:700;letter-spacing:-.02em;`;
 const BrandMark = styled.span`width:34px;height:34px;display:grid;place-items:center;border:1px solid rgba(155,174,255,.55);border-radius:10px;color:var(--proof);background:rgba(155,174,255,.08);`;
 const NetworkPill = styled.div`display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:100px;padding:8px 12px;font-size:12px;color:var(--text-secondary);`;
-const PulseDot = styled.span`width:7px;height:7px;border-radius:50%;background:var(--success);`;
-const Main = styled.main`width:min(1180px,calc(100% - 40px));margin:0 auto;padding:74px 0 36px;position:relative;z-index:1;`;
+const PulseDot = styled.span<{ $error:boolean }>`width:7px;height:7px;border-radius:50%;background:${p=>p.$error?'var(--danger)':'var(--success)'};`;
+const Main = styled.main`width:min(1180px,calc(100% - 40px));margin:0 auto;padding:52px 0 36px;position:relative;z-index:1;`;
 const Hero = styled.section`max-width:760px;`;
 const Eyebrow = styled.div`color:var(--proof);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;`;
 const Headline = styled.h1`margin:22px 0 18px;font-size:clamp(42px,6vw,72px);line-height:1.07;letter-spacing:-.055em;font-weight:720;`;
 const Accent = styled.span`color:var(--proof);`;
 const Subcopy = styled.p`max-width:650px;margin:0;color:var(--text-secondary);font-size:17px;line-height:1.75;letter-spacing:-.015em;`;
-const ViewSwitch = styled.div`display:inline-flex;margin:42px 0 22px;padding:4px;border:1px solid var(--line);background:var(--surface);border-radius:12px;`;
+const ViewSwitch = styled.div`display:inline-flex;margin:34px 0 18px;padding:4px;border:1px solid var(--line);background:var(--surface);border-radius:12px;`;
 const SwitchButton = styled.button<{ $active:boolean }>`border:1px solid ${p=>p.$active?'rgba(155,174,255,.55)':'transparent'};border-radius:8px;padding:8px 15px;display:flex;align-items:center;gap:8px;cursor:pointer;background:${p=>p.$active?'rgba(155,174,255,.1)':'transparent'};color:${p=>p.$active?'var(--text-primary)':'var(--text-secondary)'};font-weight:600;font-size:13px;transition:background .18s,border-color .18s,color .18s;&:hover{color:var(--text-primary);}`;
+const ProofRail = styled.section`display:grid;grid-template-columns:auto 1fr auto 1fr auto;align-items:center;margin:0 0 18px;padding:15px 18px;border:1px solid var(--line);border-radius:14px;background:rgba(17,23,36,.72);@media(max-width:680px){grid-template-columns:1fr;gap:10px;}`;
+const RailNode = styled.div`display:grid;grid-template-columns:30px auto;column-gap:9px;align-items:center;min-width:150px;span{grid-column:2;font-size:10px;color:var(--text-secondary);letter-spacing:.04em;}strong{grid-column:2;font-size:12px;font-weight:650;}`;
+const RailIcon = styled.div`grid-row:1/3;width:30px;height:30px;display:grid;place-items:center;border:1px solid rgba(155,174,255,.4);border-radius:50%;color:var(--proof);background:var(--canvas);`;
+const RailLink = styled.span<{ $active:boolean }>`height:1px;margin:0 15px;background:${p=>p.$active?'var(--proof)':'var(--line)'};box-shadow:${p=>p.$active?'0 0 12px rgba(155,174,255,.45)':'none'};@media(max-width:680px){width:1px;height:12px;margin:0 0 0 14px;}`;
 const ContentGrid = styled.div`display:grid;grid-template-columns:minmax(0,1.62fr) minmax(310px,.82fr);gap:18px;@media(max-width:850px){grid-template-columns:1fr;}`;
 const PrimaryCard = styled.section`border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:28px;box-shadow:0 24px 72px rgba(0,0,0,.2);`;
 const CardTop = styled.div`display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px;`;
@@ -232,6 +262,9 @@ const ProgressItem = styled.div<{ $active:boolean;$current:boolean }>`display:fl
 const ProgressDot = styled.span`width:20px;height:20px;display:grid;place-items:center;border:1px solid currentColor;border-radius:50%;font-size:9px;`;
 const ProgressLine = styled.span<{ $active:boolean }>`height:1px;flex:1;background:${p=>p.$active?'var(--proof)':'var(--line)'};margin:0 7px;`;
 const ResultBox = styled.div<{ $success:boolean }>`display:flex;gap:10px;margin-top:16px;border:1px solid ${p=>p.$success?'rgba(103,215,176,.55)':'rgba(255,143,146,.55)'};background:${p=>p.$success?'rgba(103,215,176,.08)':'rgba(255,143,146,.08)'};color:${p=>p.$success?'var(--success)':'var(--danger)'};padding:14px;border-radius:11px;svg{flex:0 0 auto;}div{display:flex;flex-direction:column;gap:3px;}strong{font-size:13px;}span{font-size:11px;color:var(--text-secondary);line-height:1.55;}`;
+const EvidenceBox = styled.div`margin-top:10px;padding:14px;border:1px solid rgba(155,174,255,.28);border-radius:11px;background:var(--canvas);`;
+const EvidenceTitle = styled.div`display:flex;align-items:center;gap:7px;margin-bottom:11px;color:var(--proof);font-size:11px;font-weight:700;letter-spacing:.05em;`;
+const EvidenceGrid = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;div{display:grid;gap:3px;min-width:0;}span{font-size:10px;color:var(--text-secondary);}code{overflow:hidden;text-overflow:ellipsis;font:10px ui-monospace,SFMono-Regular,monospace;color:var(--text-primary);white-space:nowrap;}@media(max-width:560px){grid-template-columns:1fr;}`;
 const BankPanel = styled.div``;
 const ApprovalVisual = styled.div<{ $approved:boolean }>`min-height:184px;border:1px solid ${p=>p.$approved?'rgba(103,215,176,.55)':'var(--line)'};border-radius:15px;background:${p=>p.$approved?'rgba(103,215,176,.06)':'rgba(11,15,24,.3)'};display:flex;align-items:center;gap:20px;padding:26px;`;
 const ApprovalIcon = styled.div<{ $approved:boolean }>`width:58px;height:58px;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;color:${p=>p.$approved?'var(--success)':'var(--text-secondary)'};background:${p=>p.$approved?'rgba(103,215,176,.09)':'transparent'};border:1px solid currentColor;`;

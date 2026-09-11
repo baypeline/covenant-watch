@@ -140,6 +140,20 @@ pnpm phase3:verify
 
 이 게이트는 타입 검사, idempotency·동시성·재시작·오류 매핑 테스트, 프로덕션 빌드를 실행합니다.
 
+## 웹의 실제 Midnight 연결
+
+웹은 `COVENANT_ADAPTER`로 실행 모드를 명시합니다. `demo`는 UI 개발용 메모리 원장이고, `midnight`는 wallet·indexer·proof server와 Compact 생성 바인딩을 직접 사용합니다. 실제 모드 초기화나 조회가 실패하면 `503 CHAIN_NOT_CONFIGURED`를 반환하며 데모로 자동 전환하지 않습니다.
+
+```bash
+pnpm chain:up
+pnpm contract:compile
+COVENANT_ADAPTER=midnight NEXT_PUBLIC_APP_MODE=midnight pnpm dev
+```
+
+`undeployed` 네트워크에서는 로컬 genesis 지갑만 사용합니다. 다른 네트워크에서는 `MIDNIGHT_WALLET_SEED`와 `MIDNIGHT_PRIVATE_STATE_PASSWORD`를 반드시 별도 비밀 저장소로 주입해야 합니다. 계약 역할 비밀값과 각 기간의 blinding은 권한 `0600`의 `.covenant-runtime/midnight-runtime.json`에 저장되며 API 응답이나 작업 파일에는 기록하지 않습니다.
+
+브라우저는 검증을 접수한 뒤 작업 API를 750ms 간격으로 폴링합니다. 임의의 진행 연출 타이머는 없으며 서버가 보고한 단계만 표시합니다. 완료 화면에서는 operation ID, 제출 기간, 실제 transaction ID, 마지막 확인 시각을 공개 증거로 보여줍니다. 상단 증거 흐름선은 비공개 입력이 증명을 거쳐 공개 원장 사실로 바뀌는 경계를 시각화합니다.
+
 ## 3분 데모 순서
 
 1. `1기 · 정상 자료`를 검증해 1기 승인을 만듭니다.

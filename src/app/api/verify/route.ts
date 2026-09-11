@@ -25,7 +25,8 @@ async function handlePost(request: Request) {
   }
 
   try {
-    const response = getVerificationService().start(body as StartVerifyRequest);
+    const service = await getVerificationService();
+    const response = await service.start(body as StartVerifyRequest);
     return NextResponse.json(response, {
       status: 202,
       headers: { 'x-covenant-error-codes': covenantErrorCodes.join(',') },

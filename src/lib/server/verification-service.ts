@@ -24,12 +24,12 @@ export class VerificationServiceError extends Error {
 export class VerificationService {
   constructor(
     private readonly store: OperationStore,
-    private readonly getState: () => LedgerState,
+    private readonly getState: () => LedgerState | Promise<LedgerState>,
     private readonly executeVerification: VerificationExecutor,
     private readonly schedule: (task: () => void) => void = queueMicrotask,
   ) {}
 
-  start(request: StartVerifyRequest): StartVerifyResponse {
+  async start(request: StartVerifyRequest): Promise<StartVerifyResponse> {
     const fingerprint = makeFingerprint(request);
     const previous = this.store.findByRequestId(request.requestId);
     if (previous) {
@@ -39,7 +39,7 @@ export class VerificationService {
       return startResponse(previous);
     }
 
-    const state = this.getState();
+    const state = await this.getState();
     if (request.expectedRound !== state.currentRound) {
       throw new VerificationServiceError('STATE_CHANGED', '원장의 현재 기간이 요청을 준비한 시점과 달라졌습니다.');
     }

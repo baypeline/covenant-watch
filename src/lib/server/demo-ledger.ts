@@ -59,6 +59,7 @@ function getLedger(): DemoLedger {
 
 function initialState(): DemoLedger {
   return {
+    mode: 'demo',
     currentRound: 1,
     approvedRound: 0,
     snapshotCommitment: makeCommitment('round-1-pass', 1),

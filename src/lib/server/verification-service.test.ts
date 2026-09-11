@@ -17,7 +17,7 @@ afterEach(() => {
 describe('VerificationService', () => {
   it('tracks an accepted request through confirmation and stores no private amounts', async () => {
     const { service, runNext, storeFile } = fixture(async () => approved());
-    const accepted = service.start(request('request-confirmed'));
+    const accepted = await service.start(request('request-confirmed'));
 
     expect(accepted.phase).toBe('queued');
     await runNext();
@@ -32,31 +32,31 @@ describe('VerificationService', () => {
     expect(persisted).not.toContain('private-blinding');
   });
 
-  it('returns the same operation for an identical requestId', () => {
+  it('returns the same operation for an identical requestId', async () => {
     const { service } = fixture(async () => approved());
-    const first = service.start(request('request-retry'));
-    const retry = service.start(request('request-retry'));
+    const first = await service.start(request('request-retry'));
+    const retry = await service.start(request('request-retry'));
     expect(retry.operationId).toBe(first.operationId);
   });
 
-  it('rejects requestId reuse with a different body', () => {
+  it('rejects requestId reuse with a different body', async () => {
     const { service } = fixture(async () => approved());
-    service.start(request('request-conflict'));
-    expect(() => service.start({ ...request('request-conflict'), caseId: 'round-1-stale' }))
-      .toThrowError(expect.objectContaining({ code: 'IDEMPOTENCY_CONFLICT' }));
+    await service.start(request('request-conflict'));
+    await expect(service.start({ ...request('request-conflict'), caseId: 'round-1-stale' }))
+      .rejects.toThrowError(expect.objectContaining({ code: 'IDEMPOTENCY_CONFLICT' }));
   });
 
-  it('allows only one active operation', () => {
+  it('allows only one active operation', async () => {
     const { service } = fixture(async () => approved());
-    service.start(request('request-active-a'));
-    expect(() => service.start(request('request-active-b')))
-      .toThrowError(expect.objectContaining({ code: 'BUSY' }));
+    await service.start(request('request-active-a'));
+    await expect(service.start(request('request-active-b')))
+      .rejects.toThrowError(expect.objectContaining({ code: 'BUSY' }));
   });
 
-  it('rejects a request prepared for an old round', () => {
+  it('rejects a request prepared for an old round', async () => {
     const { service } = fixture(async () => approved(), { currentRound: 2 });
-    expect(() => service.start(request('request-stale-state')))
-      .toThrowError(expect.objectContaining({ code: 'STATE_CHANGED' }));
+    await expect(service.start(request('request-stale-state')))
+      .rejects.toThrowError(expect.objectContaining({ code: 'STATE_CHANGED' }));
   });
 
   it('tracks a covenant rejection as a terminal operation', async () => {
@@ -66,7 +66,7 @@ describe('VerificationService', () => {
       message: '현금 부족',
       state: ledger(),
     }));
-    const accepted = service.start(request('request-rejected'));
+    const accepted = await service.start(request('request-rejected'));
     await runNext();
     expect(service.get(accepted.operationId)).toMatchObject({
       phase: 'rejected',
@@ -81,10 +81,10 @@ describe('VerificationService', () => {
       attempts += 1;
       throw new Error('connection lost after submit');
     });
-    const accepted = service.start(request('request-unknown'));
+    const accepted = await service.start(request('request-unknown'));
     await runNext();
     expect(service.get(accepted.operationId).phase).toBe('unknown');
-    expect(service.start(request('request-unknown')).operationId).toBe(accepted.operationId);
+    expect((await service.start(request('request-unknown'))).operationId).toBe(accepted.operationId);
     expect(attempts).toBe(1);
   });
 
@@ -154,6 +154,7 @@ function approved(): VerifyResponse {
 
 function ledger(): LedgerState {
   return {
+    mode: 'demo',
     currentRound: 1,
     approvedRound: 1,
     snapshotCommitment: 'public-commitment',

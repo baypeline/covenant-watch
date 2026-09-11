@@ -11,7 +11,8 @@ export function GET(_request: Request, context: { params: Promise<{ operationId:
 async function handleGet(context: { params: Promise<{ operationId: string }> }) {
   const { operationId } = await context.params;
   try {
-    return NextResponse.json(getVerificationService().get(operationId), {
+    const service = await getVerificationService();
+    return NextResponse.json(service.get(operationId), {
       headers: { 'cache-control': 'no-store' },
     });
   } catch (error) {
