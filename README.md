@@ -179,10 +179,11 @@ getVerification(operationId): VerificationOperation
 ## 검증
 
 ```bash
+pnpm phase5:verify
 pnpm typecheck
 pnpm build
 pnpm test:api
 pnpm contract:test
 ```
 
-공개 상태나 로그에 `cash`, `payments`, `blinding`, `adminSecret`, `companySecret`이 들어가지 않는지 반드시 함께 확인하세요.
+`phase5:verify`는 회로 30건, API 상태 머신 10건, 프로덕션 빌드, HTTP 3장면 E2E, 추적 파일 비밀정보 검사를 순서대로 수행합니다. 상세 신뢰 경계와 잔여 위험은 [보안 검수](docs/security-review.md)에 기록했습니다.

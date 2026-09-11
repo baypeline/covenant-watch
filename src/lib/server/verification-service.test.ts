@@ -53,6 +53,17 @@ describe('VerificationService', () => {
       .rejects.toThrowError(expect.objectContaining({ code: 'BUSY' }));
   });
 
+  it('admits only one request when two starts race', async () => {
+    const { service } = fixture(async () => approved());
+    const results = await Promise.allSettled([
+      service.start(request('request-race-a')),
+      service.start(request('request-race-b')),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find((result) => result.status === 'rejected');
+    expect(rejected).toMatchObject({ reason: expect.objectContaining({ code: 'BUSY' }) });
+  });
+
   it('rejects a request prepared for an old round', async () => {
     const { service } = fixture(async () => approved(), { currentRound: 2 });
     await expect(service.start(request('request-stale-state')))
