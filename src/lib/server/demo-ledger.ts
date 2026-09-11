@@ -26,7 +26,7 @@ export function verifyDemoCase(caseId: CaseId): VerifyResponse {
   if (ledger.approvedRound === ledger.currentRound) {
     return rejected('ALREADY_APPROVED', '이 기간은 이미 승인되었습니다.', ledger);
   }
-  if (5 * sample.cash < 6 * sample.payments) {
+  if (5n * BigInt(sample.cash) < 6n * BigInt(sample.payments)) {
     return rejected('INSUFFICIENT_CASH', '현금 여유 기준을 충족하지 못했습니다.', ledger);
   }
 
