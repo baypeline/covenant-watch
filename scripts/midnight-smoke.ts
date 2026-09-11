@@ -34,6 +34,7 @@ import {
 const NETWORK_ID = 'undeployed';
 const GENESIS_WALLET_SEED = '0000000000000000000000000000000000000000000000000000000000000001';
 const PRIVATE_STATE_ID = 'covenantWatchSmokePrivateState';
+const fullDemo = process.argv.includes('--full-demo');
 const indexerPort = process.env.COVENANT_INDEXER_PORT ?? '18088';
 const nodePort = process.env.COVENANT_NODE_PORT ?? '19944';
 const proofPort = process.env.COVENANT_PROOF_PORT ?? '16300';
@@ -141,6 +142,22 @@ function isComplete(progress: unknown): boolean {
   return typeof method === 'function' && (method as () => boolean).call(progress);
 }
 
+async function expectRejection(action: () => Promise<unknown>, expectedCode: string) {
+  try {
+    await action();
+  } catch (error) {
+    const messages: string[] = [];
+    let current: unknown = error;
+    while (current instanceof Error) {
+      messages.push(current.message);
+      current = current.cause;
+    }
+    if (messages.some((message) => message.includes(expectedCode))) return expectedCode;
+    throw new Error(`Expected ${expectedCode}, received ${messages.join(' | ') || String(error)}`);
+  }
+  throw new Error(`Expected ${expectedCode}, but the circuit call succeeded.`);
+}
+
 async function main() {
   setNetworkId(NETWORK_ID);
   const wallet = await LocalWallet.create();
@@ -201,6 +218,55 @@ async function main() {
       throw new Error('Approval was not reflected in the public ledger state.');
     }
 
+    let finalState = decodedApproved;
+    let demoScenes: Record<string, unknown> | undefined;
+
+    if (fullDemo) {
+      const roundTwoBlinding = randomBytes(32);
+      const roundTwoCommitment = pureCircuits.makeSnapshotCommitment(
+        companyId,
+        2n,
+        90n,
+        100n,
+        roundTwoBlinding,
+      );
+      const advance = await deployed.callTx.advanceSnapshot(roundTwoCommitment, adminSecret);
+      const advancedState = await providers.publicDataProvider.queryContractState(deployment.contractAddress);
+      if (!advancedState) throw new Error('Advanced contract state was not returned by the indexer.');
+      const decodedAdvanced = decodeLedger(advancedState.data);
+      if (decodedAdvanced.currentRound !== 2n || decodedAdvanced.approvedRound !== 1n) {
+        throw new Error('Advancing the snapshot did not preserve the prior approval.');
+      }
+
+      const insufficientCode = await expectRejection(
+        () => deployed.callTx.verifyAndApprove(
+          companyId,
+          2n,
+          90n,
+          100n,
+          roundTwoBlinding,
+          companySecret,
+        ),
+        'INSUFFICIENT_CASH',
+      );
+      const staleCode = await expectRejection(
+        () => deployed.callTx.verifyAndApprove(companyId, 1n, 150n, 100n, blinding, companySecret),
+        'STALE_DATA',
+      );
+      const rejectedState = await providers.publicDataProvider.queryContractState(deployment.contractAddress);
+      if (!rejectedState) throw new Error('Final contract state was not returned by the indexer.');
+      finalState = decodeLedger(rejectedState.data);
+      if (finalState.currentRound !== 2n || finalState.approvedRound !== 1n) {
+        throw new Error('A rejected proof changed the public approval state.');
+      }
+      demoScenes = {
+        roundOneApproval: { status: 'confirmed', transactionId: approval.public.txId },
+        roundTwoAdvance: { status: 'confirmed', transactionId: advance.public.txId },
+        insufficientCash: { status: 'rejected', code: insufficientCode, transactionId: null },
+        staleSnapshot: { status: 'rejected', code: staleCode, transactionId: null },
+      };
+    }
+
     const receipt = {
       ok: true,
       checkedAt: new Date().toISOString(),
@@ -209,15 +275,17 @@ async function main() {
       deploymentTxId: deployment.txId,
       approvalTxId: approval.public.txId,
       approvalBlockHeight: approval.public.blockHeight.toString(),
+      ...(demoScenes ? { scenes: demoScenes } : {}),
       state: {
-        currentRound: decodedApproved.currentRound.toString(),
-        approvedRound: decodedApproved.approvedRound.toString(),
-        snapshotCommitment: Buffer.from(decodedApproved.snapshotCommitment).toString('hex'),
+        currentRound: finalState.currentRound.toString(),
+        approvedRound: finalState.approvedRound.toString(),
+        snapshotCommitment: Buffer.from(finalState.snapshotCommitment).toString('hex'),
       },
       elapsedMs: Date.now() - startedAt,
     };
     mkdirSync(runtimeDir, { recursive: true });
-    writeFileSync(path.join(runtimeDir, 'phase0-smoke.json'), `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+    const receiptName = fullDemo ? 'phase2-demo.json' : 'phase0-smoke.json';
+    writeFileSync(path.join(runtimeDir, receiptName), `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
     console.log(JSON.stringify(receipt, null, 2));
   } finally {
     await wallet.stop();
