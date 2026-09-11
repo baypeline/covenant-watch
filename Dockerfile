@@ -5,9 +5,9 @@ RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
 WORKDIR /workspace
 
 FROM base AS deps
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY contract/package.json contract/package.json
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 FROM deps AS development
 ENV NODE_ENV=development

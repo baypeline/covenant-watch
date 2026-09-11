@@ -39,7 +39,7 @@ CSS 파일은 사용하지 않습니다. Pretendard `@font-face`와 브라우저
 
 ```bash
 corepack enable
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
@@ -83,6 +83,32 @@ pnpm contract:test
 - `snapshotCommitment`: 현재 자료 커밋먼트
 
 `advanceSnapshot`은 관리자 비밀값 소유와 새 커밋먼트를 검증하고 기간을 전환합니다. `verifyAndApprove`는 기업 권한, 기간, 커밋먼트, 금액 범위, 중복 승인과 현금 조건을 검사합니다. 현금 `C`, 지급예정액 `P`, 블라인딩 값, 역할 비밀값은 circuit의 비공개 인자로 유지됩니다.
+
+## 로컬 Midnight 수직 슬라이스
+
+실제 로컬 node, indexer, proof server에서 계약 배포와 1기 정상 승인을 한 번에 검증할 수 있습니다. 먼저 위 Compact toolchain을 설치하고 새 셸에서 경로를 활성화합니다.
+
+```bash
+source "$HOME/.local/bin/env"
+pnpm install --frozen-lockfile
+pnpm phase0:verify
+```
+
+`phase0:verify`는 다음 작업을 순서대로 수행합니다.
+
+1. `undeployed` 로컬 네트워크의 node, indexer, proof server를 기동하고 health check를 기다립니다.
+2. Compact 계약을 컴파일해 `contract/src/managed/covenant-watch`를 생성합니다.
+3. 로컬 genesis 지갑으로 새 계약을 배포합니다.
+4. 무작위 역할 비밀값과 blinding으로 자료 A(`C=150`, `P=100`)를 실제 증명·제출합니다.
+5. indexer에서 원장을 다시 읽어 `currentRound=1`, `approvedRound=1`을 검증합니다.
+
+성공하면 계약 주소, 배포·승인 거래 ID, 승인 블록, 공개 원장 상태가 출력됩니다. 동일한 비공개 입력은 출력하거나 저장하지 않으며, 비밀값을 제외한 마지막 실행 영수증만 `.covenant-runtime/phase0-smoke.json`에 기록합니다.
+
+```bash
+pnpm chain:down
+```
+
+생성된 계약 바인딩과 로컬 실행 기록은 빌드 산출물이므로 Git에 커밋하지 않습니다. 이 smoke 명령은 매 실행마다 새 계약을 배포합니다.
 
 ## 3분 데모 순서
 

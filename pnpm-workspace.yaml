@@ -2,4 +2,7 @@ packages:
   - contract
 
 onlyBuiltDependencies:
+  - classic-level
+  - esbuild
+  - protobufjs
   - sharp

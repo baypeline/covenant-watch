@@ -2,6 +2,7 @@
   "name": "covenant-watch",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.15.1",
   "engines": {
     "node": ">=22.15.0"
@@ -11,13 +12,29 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "typecheck:smoke": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck scripts/midnight-smoke.ts",
     "contract:compile": "pnpm --dir contract compact",
     "contract:test": "pnpm --dir contract test",
+    "chain:up": "docker compose up -d --wait node indexer proof-server",
+    "chain:down": "docker compose down",
+    "midnight:smoke": "tsx scripts/midnight-smoke.ts",
+    "phase0:verify": "pnpm chain:up && pnpm contract:compile && pnpm midnight:smoke",
     "docker:dev": "docker compose -f compose.yml -f compose.dev.yml up --build",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down"
   },
   "dependencies": {
+    "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-protocol": "4.1.1",
+    "@midnight-ntwrk/midnight-js-types": "4.1.1",
+    "@midnight-ntwrk/midnight-js-utils": "4.1.1",
+    "@midnight-ntwrk/testkit-js": "4.1.1",
+    "@midnight-ntwrk/wallet-sdk": "1.2.0",
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -26,12 +43,24 @@
     "next": "16.3.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "rxjs": "7.8.2",
+    "ws": "8.21.3",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
+    "tsx": "4.23.1",
     "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "@midnight-ntwrk/ledger-v8": "8.1.0",
+      "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+      "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
+      "@midnight-ntwrk/wallet-sdk": "1.2.0",
+      "smoldot": "npm:empty-npm-package@1.0.0"
+    }
   }
 }

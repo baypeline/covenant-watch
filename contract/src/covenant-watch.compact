@@ -62,7 +62,7 @@ export circuit advanceSnapshot(
         "UNAUTHORIZED"
     );
     assert(currentRound < 65535, "ROUND_LIMIT_REACHED");
-    currentRound = currentRound + 1;
+    currentRound = (currentRound + 1) as Uint<16>;
     snapshotCommitment = disclose(newCommitment);
 }
 
