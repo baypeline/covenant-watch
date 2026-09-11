@@ -20,6 +20,8 @@ services:
       COVENANT_RUNTIME_DIR: /app/.covenant-runtime
     ports:
       - "${COVENANT_WEB_PORT:-9923}:3000"
+    volumes:
+      - covenant_runtime:/app/.covenant-runtime
     depends_on:
       indexer:
         condition: service_healthy
@@ -84,3 +86,6 @@ services:
       timeout: 5s
       retries: 30
       start_period: 20s
+
+volumes:
+  covenant_runtime:

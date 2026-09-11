@@ -74,6 +74,9 @@ class MidnightAdapter implements CovenantAdapter {
     const walletSeed = process.env.MIDNIGHT_WALLET_SEED
       || (networkId === 'undeployed' ? LOCAL_GENESIS_SEED : null);
     if (!walletSeed) throw new Error('MIDNIGHT_WALLET_SEED is required outside the undeployed network.');
+    const privateStatePassword = process.env.MIDNIGHT_PRIVATE_STATE_PASSWORD
+      || (networkId === 'undeployed' ? 'Covenant-local-2026!' : null);
+    if (!privateStatePassword) throw new Error('MIDNIGHT_PRIVATE_STATE_PASSWORD is required outside the undeployed network.');
 
     const runtimeDirectory = process.env.COVENANT_RUNTIME_DIR
       ?? path.join(process.cwd(), '.covenant-runtime');
@@ -86,8 +89,9 @@ class MidnightAdapter implements CovenantAdapter {
       const zkConfigProvider = new NodeZkConfigProvider<CovenantCircuits>(zkConfigPath);
       const providers: Providers = {
         privateStateProvider: levelPrivateStateProvider({
-          privateStateStoreName: path.join(runtimeDirectory, 'server-private-state'),
-          privateStoragePasswordProvider: () => process.env.MIDNIGHT_PRIVATE_STATE_PASSWORD || 'Covenant-local-2026!',
+          midnightDbName: path.join(runtimeDirectory, 'midnight-level-db'),
+          privateStateStoreName: 'server-private-states',
+          privateStoragePasswordProvider: () => privateStatePassword,
           accountId: wallet.getCoinPublicKey(),
         }),
         publicDataProvider: indexerPublicDataProvider(environment.indexer, environment.indexerWS),

@@ -154,6 +154,21 @@ COVENANT_ADAPTER=midnight NEXT_PUBLIC_APP_MODE=midnight pnpm dev
 
 브라우저는 검증을 접수한 뒤 작업 API를 750ms 간격으로 폴링합니다. 임의의 진행 연출 타이머는 없으며 서버가 보고한 단계만 표시합니다. 완료 화면에서는 operation ID, 제출 기간, 실제 transaction ID, 마지막 확인 시각을 공개 증거로 보여줍니다. 상단 증거 흐름선은 비공개 입력이 증명을 거쳐 공개 원장 사실로 바뀌는 경계를 시각화합니다.
 
+## 배포와 인계
+
+프로덕션 Docker 빌드는 생성 파일이 없는 새 checkout에서도 Compact 0.31.1을 설치해 계약을 컴파일합니다. 실제 모드의 계약·private state·operation은 `covenant_runtime` 볼륨에 유지되고 `/api/health`로 프로세스 상태를 확인할 수 있습니다.
+
+```bash
+pnpm phase6:verify
+COVENANT_ADAPTER=midnight NEXT_PUBLIC_APP_MODE=midnight docker compose up -d
+```
+
+- [운영 런북](docs/runbook.md): 새 환경 배포, readiness, 백업·복구, 장애 대응, 롤백
+- [3분 영상 대본](docs/demo-video-script.md): 제출 영상 장면과 발화 순서
+- [단계별 인수 결과](docs/acceptance.md): 실제 계약·거래 증거와 완료 게이트
+
+계정 없는 임시 외부 미리보기는 `cloudflared tunnel --url http://127.0.0.1:9923`으로 열 수 있습니다. 이 URL은 uptime 보장이 없으므로 해커톤 제출 URL은 Cloudflare named tunnel이나 동일한 장기 실행 플랫폼에 Docker 이미지를 배포해 고정해야 합니다.
+
 ## 3분 데모 순서
 
 1. `1기 · 정상 자료`를 검증해 1기 승인을 만듭니다.

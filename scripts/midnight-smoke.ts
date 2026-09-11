@@ -166,7 +166,8 @@ async function main() {
     const zkConfigProvider = new NodeZkConfigProvider<CovenantCircuits>(zkConfigPath);
     const providers: SmokeProviders = {
       privateStateProvider: levelPrivateStateProvider({
-        privateStateStoreName: path.join(runtimeDir, `private-state-${Date.now()}`),
+        midnightDbName: path.join(runtimeDir, `private-state-${Date.now()}`),
+        privateStateStoreName: 'smoke-private-states',
         privateStoragePasswordProvider: () => 'Covenant-smoke-password-2026!',
         accountId: wallet.getCoinPublicKey(),
       }),

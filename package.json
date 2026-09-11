@@ -26,6 +26,7 @@
     "phase2:verify": "pnpm chain:up && pnpm contract:compile && pnpm midnight:demo",
     "phase3:verify": "pnpm typecheck && pnpm test:api && pnpm build",
     "phase5:verify": "pnpm typecheck && pnpm contract:test && pnpm test:api && pnpm build && pnpm test:e2e && pnpm security:check",
+    "phase6:verify": "pnpm phase5:verify && docker compose config --quiet && docker compose build web",
     "docker:dev": "docker compose -f compose.yml -f compose.dev.yml up --build",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down"
