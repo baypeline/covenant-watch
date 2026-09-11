@@ -3,12 +3,21 @@ import type {
   ApiError,
   CaseId,
   LedgerState,
+  PublicStateResponse,
   StartVerifyResponse,
   VerificationOperation,
 } from '@/types/covenant';
 
-export async function getLedgerState(): Promise<LedgerState> {
-  return request<LedgerState>('/api/state');
+export async function getLedgerState(): Promise<LedgerState & { operatorActionsEnabled: boolean }> {
+  const response = await request<PublicStateResponse>('/api/state');
+  return {
+    ...response.state,
+    mode: response.mode,
+    network: response.network,
+    contractAddress: response.contractAddress,
+    updatedAt: response.fetchedAt,
+    operatorActionsEnabled: response.operatorActionsEnabled,
+  };
 }
 
 export async function startVerification(
@@ -18,7 +27,7 @@ export async function startVerification(
 ): Promise<StartVerifyResponse> {
   return request<StartVerifyResponse>('/api/verify', {
     method: 'POST',
-    body: JSON.stringify({ caseId, expectedRound, requestId: crypto.randomUUID() }),
+    body: JSON.stringify({ caseId, expectedRound, requestId }),
   });
 }
 

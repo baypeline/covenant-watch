@@ -71,6 +71,30 @@ export class VerificationService {
     return toPublicOperation(operation);
   }
 
+  assertIdle() {
+    if (this.store.findActive()) {
+      throw new VerificationServiceError('BUSY', '검증 작업 중에는 기간을 변경하거나 초기화할 수 없습니다.');
+    }
+  }
+
+  async recoverUnknown(): Promise<number> {
+    const recoverable = this.store.findRecoverable();
+    if (recoverable.length === 0) return 0;
+    const state = await this.getState();
+    let resolved = 0;
+    for (const operation of recoverable) {
+      if (state.approvedRound === operation.submittedRound) {
+        this.store.update(operation.operationId, {
+          phase: 'confirmed',
+          state,
+          message: '재시작 후 공개 원장 상태에서 승인을 다시 확인했습니다.',
+        });
+        resolved += 1;
+      }
+    }
+    return resolved;
+  }
+
   private async run(operationId: string) {
     const operation = this.store.get(operationId);
     if (!operation) return;

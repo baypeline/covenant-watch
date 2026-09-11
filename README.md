@@ -126,13 +126,15 @@ pnpm phase2:verify
 
 검증은 장시간 걸리는 증명 생성을 HTTP 요청 수명과 분리합니다. `POST /api/verify`에 `caseId`, 클라이언트가 생성한 `requestId`, 화면이 읽은 `expectedRound`를 보내면 `202 Accepted`와 `operationId`를 반환합니다. 이후 `GET /api/verify/{operationId}`를 폴링해 다음 상태를 추적합니다.
 
+`GET /api/state`는 `mode`, `network`, `contractAddress`, 공개 원장 `state`, 실제 조회 시각 `fetchedAt`을 반환합니다. 조회가 실패하면 `503`, 오류 코드와 `state: null`을 반환하며 마지막 값을 최신 상태처럼 만들지 않습니다.
+
 ```text
 queued → proving → submitting → confirming → confirmed
                                 └──────────→ rejected
                      통신 결과 불명 ──────→ unknown
 ```
 
-같은 본문의 `requestId` 재시도는 최초 작업을 반환하고, 다른 본문으로 재사용하면 `IDEMPOTENCY_CONFLICT`입니다. 동시에 하나의 작업만 허용하며, 요청 준비 후 기간이 바뀌면 각각 `BUSY`, `STATE_CHANGED`로 거절합니다. 작업 기록은 기본적으로 `.covenant-runtime/operations.json`에 원자적으로 저장하고 비공개 금액이나 비밀값을 포함하지 않습니다. 서버가 미완료 작업을 읽으면 자동 재제출하지 않고 `unknown`으로 복구합니다.
+같은 본문의 `requestId` 재시도는 최초 작업을 반환하고, 다른 본문으로 재사용하면 `IDEMPOTENCY_CONFLICT`입니다. 동시에 하나의 작업만 허용하며, 요청 준비 후 기간이 바뀌면 각각 `BUSY`, `STATE_CHANGED`로 거절합니다. 작업 기록은 기본적으로 `.covenant-runtime/operations.json`에 원자적으로 저장하고 비공개 금액이나 비밀값을 포함하지 않습니다. 서버가 미완료 작업을 읽으면 자동 재제출하지 않고 `unknown`으로 복구합니다. 이미 transaction ID를 확보한 작업은 공개 원장을 조회해 해당 기간 승인이 확인될 때만 `confirmed`로 해소합니다.
 
 ```bash
 pnpm phase3:verify
@@ -154,6 +156,8 @@ COVENANT_ADAPTER=midnight NEXT_PUBLIC_APP_MODE=midnight pnpm dev
 
 브라우저는 검증을 접수한 뒤 작업 API를 750ms 간격으로 폴링합니다. 임의의 진행 연출 타이머는 없으며 서버가 보고한 단계만 표시합니다. 완료 화면에서는 operation ID, 제출 기간, 실제 transaction ID, 마지막 확인 시각을 공개 증거로 보여줍니다. 상단 증거 흐름선은 비공개 입력이 증명을 거쳐 공개 원장 사실로 바뀌는 경계를 시각화합니다.
 
+브라우저 새로고침 복구를 위해 operation ID, request ID, 계약 주소만 `sessionStorage`에 보관합니다. 금액·salt·권한 비밀값과 승인 상태는 저장하지 않으며, 계약 주소가 바뀌면 이전 작업 포인터를 폐기합니다.
+
 ## 배포와 인계
 
 프로덕션 Docker 빌드는 생성 파일이 없는 새 checkout에서도 Compact 0.31.1을 설치해 계약을 컴파일합니다. 실제 모드의 계약·private state·operation은 `covenant_runtime` 볼륨에 유지되고 `/api/health`로 프로세스 상태를 확인할 수 있습니다.
@@ -167,12 +171,12 @@ COVENANT_ADAPTER=midnight NEXT_PUBLIC_APP_MODE=midnight docker compose up -d
 - [3분 영상 대본](docs/demo-video-script.md): 제출 영상 장면과 발화 순서
 - [단계별 인수 결과](docs/acceptance.md): 실제 계약·거래 증거와 완료 게이트
 
-계정 없는 임시 외부 미리보기는 `cloudflared tunnel --url http://127.0.0.1:9923`으로 열 수 있습니다. 이 URL은 uptime 보장이 없으므로 해커톤 제출 URL은 Cloudflare named tunnel이나 동일한 장기 실행 플랫폼에 Docker 이미지를 배포해 고정해야 합니다.
+계정 없는 임시 외부 미리보기는 `cloudflared tunnel --url http://127.0.0.1:9923`으로 열 수 있지만 쓰기 지갑을 가진 앱을 무인증 공개 URL에 노출하지 않습니다. 해커톤 제출 URL은 Cloudflare Access 같은 앞단 인증을 적용한 named tunnel이나 동일한 장기 실행 플랫폼에 배포해야 합니다. Quick Tunnel은 uptime 보장이 없어 제출 URL로 사용하지 않습니다.
 
 ## 3분 데모 순서
 
 1. `1기 · 정상 자료`를 검증해 1기 승인을 만듭니다.
-2. `2기 자료 등록`으로 현재 기간을 전환합니다.
+2. 운영자가 `pnpm operator:advance`로 현재 기간을 전환합니다. 로컬 UI 데모에서만 `COVENANT_ENABLE_OPERATOR_HTTP=true`와 빈 운영 토큰으로 화면 제어를 노출할 수 있습니다.
 3. `2기 · 현금 부족`을 신청해 `INSUFFICIENT_CASH`와 승인 미생성을 확인합니다.
 4. `1기 · 이전 자료`를 신청해 `STALE_DATA`를 확인합니다.
 5. `은행 보기`에서 원금액 없이 현재 기간, 승인 여부와 커밋먼트만 확인합니다.

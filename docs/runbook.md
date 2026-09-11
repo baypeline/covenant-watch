@@ -26,6 +26,16 @@ curl http://localhost:9923/api/state
 
 외부 URL은 HTTPS를 사용해야 하며, 플랫폼의 요청 제한시간은 최초 상태 조회와 proof 제출을 고려해 10분 이상으로 설정합니다. `NEXT_PUBLIC_APP_MODE`와 `COVENANT_ADAPTER`는 모두 `midnight`로 고정합니다.
 
+외부 배포는 URL 전체에 접근제어를 적용해 공개 방문자가 서버 기업 지갑으로 증명을 반복 실행하지 못하게 합니다. 관리자 HTTP 경로는 기본적으로 `404`이며, 운영 CLI가 필요할 때만 아래 비밀값을 주입합니다.
+
+```bash
+COVENANT_ENABLE_OPERATOR_HTTP=true
+COVENANT_OPERATOR_TOKEN='<secret manager value>'
+COVENANT_OPERATOR_URL=https://restricted.example pnpm operator:advance
+```
+
+토큰은 브라우저에 전달하지 않습니다. 로컬 전용 UI 제어가 필요하면 운영 HTTP를 활성화하되 토큰을 비워둘 수 있으며, 이 설정을 외부 URL에 사용하지 않습니다.
+
 ## 일상 점검
 
 ```bash
@@ -35,13 +45,13 @@ curl -fsS http://localhost:9923/api/state
 docker compose logs --tail=100 web indexer proof-server
 ```
 
-`/api/health`는 프로세스 liveness만 확인합니다. `/api/state`의 계약 주소, currentRound, approvedRound가 실제 readiness 기준입니다.
+`/api/health`는 프로세스 liveness만 확인합니다. `/api/state` 응답의 계약 주소와 `state.currentRound`, `state.approvedRound`가 실제 readiness 기준입니다.
 
 ## 백업과 복구
 
 중지 후 `covenant_runtime` 볼륨 전체를 암호화 백업합니다. 여기에는 지갑 seed 자체는 없지만 계약 역할 비밀값, blinding, 암호화된 private state, operation 기록이 있습니다. 일부 파일만 복사하지 않습니다.
 
-복구 후 `/api/state`가 기존 계약 주소를 읽는지 확인합니다. `queued`, `proving`, `submitting`, `confirming` 상태에서 재시작된 작업은 `unknown`으로 바뀌며 자동 재제출되지 않습니다. operation의 transaction ID와 indexer 기록을 대조한 뒤 수동으로 종결합니다.
+복구 후 `/api/state`가 기존 계약 주소를 읽는지 확인합니다. `queued`, `proving`, `submitting`, `confirming` 상태에서 재시작된 작업은 `unknown`으로 바뀌며 자동 재제출되지 않습니다. transaction ID가 저장된 작업은 공개 원장의 같은 기간 승인이 확인되면 자동으로 `confirmed`가 됩니다. 나머지는 operation의 transaction ID와 indexer 기록을 대조하고 `unknown` 상태를 유지한 채 수동 판단합니다.
 
 ## 장애 대응
 
@@ -53,4 +63,4 @@ docker compose logs --tail=100 web indexer proof-server
 
 ## 롤백
 
-애플리케이션 이미지만 이전 digest로 되돌리고 runtime 볼륨은 유지합니다. Compact 회로 또는 verifier key가 바뀐 릴리스는 기존 계약과 호환성을 확인하지 않고 롤백·재배포하지 않습니다. 데이터 삭제가 필요한 데모 초기화는 UI의 초기화 동작으로 새 계약을 배포하며, 운영 데이터 삭제 수단으로 사용하지 않습니다.
+애플리케이션 이미지만 이전 digest로 되돌리고 runtime 볼륨은 유지합니다. Compact 회로 또는 verifier key가 바뀐 릴리스는 기존 계약과 호환성을 확인하지 않고 롤백·재배포하지 않습니다. 데이터 삭제가 필요한 데모 초기화는 `pnpm operator:reset`으로 새 계약을 배포하며, 운영 데이터 삭제 수단으로 사용하지 않습니다.

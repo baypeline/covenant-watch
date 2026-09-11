@@ -51,6 +51,7 @@ describe('VerificationService', () => {
     await service.start(request('request-active-a'));
     await expect(service.start(request('request-active-b')))
       .rejects.toThrowError(expect.objectContaining({ code: 'BUSY' }));
+    expect(() => service.assertIdle()).toThrowError(expect.objectContaining({ code: 'BUSY' }));
   });
 
   it('admits only one request when two starts race', async () => {
@@ -119,6 +120,42 @@ describe('VerificationService', () => {
 
     const recovered = new OperationStore(storeFile).get('interrupted-operation');
     expect(recovered?.phase).toBe('unknown');
+  });
+
+  it('resolves an unknown submitted transaction from the public ledger without resubmitting', async () => {
+    const directory = makeTemporaryDirectory();
+    const storeFile = join(directory, 'operations.json');
+    const original = new OperationStore(storeFile);
+    original.create({
+      operationId: 'submitted-operation',
+      requestId: 'request-submitted',
+      caseId: 'round-1-pass',
+      fingerprint: 'fingerprint',
+      phase: 'confirming',
+      submittedRound: 1,
+      transactionId: 'tx-submitted',
+      code: null,
+      message: null,
+      state: null,
+      updatedAt: new Date().toISOString(),
+    });
+    let executions = 0;
+    const recovered = new VerificationService(
+      new OperationStore(storeFile),
+      () => ledger(),
+      async () => {
+        executions += 1;
+        return approved();
+      },
+    );
+
+    expect(await recovered.recoverUnknown()).toBe(1);
+    expect(recovered.get('submitted-operation')).toMatchObject({
+      phase: 'confirmed',
+      transactionId: 'tx-submitted',
+      state: { approvedRound: 1 },
+    });
+    expect(executions).toBe(0);
   });
 
   it('returns a typed error for a missing operation', () => {

@@ -30,6 +30,15 @@ export interface LedgerState {
   updatedAt: string;
 }
 
+export interface PublicStateResponse {
+  mode: LedgerState['mode'];
+  network: string;
+  contractAddress: string;
+  state: Pick<LedgerState, 'currentRound' | 'approvedRound' | 'snapshotCommitment' | 'lastTransactionId'>;
+  fetchedAt: string;
+  operatorActionsEnabled: boolean;
+}
+
 export interface VerifyRequest {
   caseId: CaseId;
 }
@@ -77,14 +86,17 @@ export interface AdvanceResponse {
 export interface ApiError {
   ok: false;
   code:
-    | 'BAD_REQUEST'
+    | 'INVALID_REQUEST'
     | 'INTERNAL_ERROR'
     | 'CHAIN_NOT_CONFIGURED'
     | 'STATE_CHANGED'
     | 'BUSY'
     | 'IDEMPOTENCY_CONFLICT'
-    | 'OPERATION_NOT_FOUND';
+    | 'OPERATION_NOT_FOUND'
+    | 'OPERATOR_HTTP_DISABLED'
+    | 'UNAUTHORIZED';
   message: string;
+  state?: null;
 }
 
 export const cases = {

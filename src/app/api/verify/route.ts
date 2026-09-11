@@ -21,7 +21,7 @@ async function handlePost(request: Request) {
     || !Number.isSafeInteger(body.expectedRound)
     || (body.expectedRound ?? 0) < 1
   ) {
-    return NextResponse.json({ ok: false, code: 'BAD_REQUEST', message: 'caseId, requestId, expectedRound를 확인해 주세요.' }, { status: 400 });
+    return NextResponse.json({ ok: false, code: 'INVALID_REQUEST', message: 'caseId, requestId, expectedRound를 확인해 주세요.' }, { status: 400 });
   }
 
   try {

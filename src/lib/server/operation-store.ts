@@ -34,6 +34,12 @@ export class OperationStore {
     return [...this.operations.values()].find((operation) => activePhases.has(operation.phase)) ?? null;
   }
 
+  findRecoverable() {
+    return [...this.operations.values()].filter(
+      (operation) => operation.phase === 'unknown' && operation.transactionId !== null,
+    );
+  }
+
   create(operation: StoredOperation) {
     this.operations.set(operation.operationId, operation);
     this.persist();

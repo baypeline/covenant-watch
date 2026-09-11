@@ -11,10 +11,14 @@ const serviceGlobal = globalThis as typeof globalThis & { __covenantVerification
 
 export async function getVerificationService() {
   const adapter = await getCovenantAdapter();
-  serviceGlobal.__covenantVerificationService ??= new VerificationService(
-    new OperationStore(operationsFile),
-    () => adapter.getState(),
-    (caseId) => adapter.verify(caseId),
-  );
+  if (!serviceGlobal.__covenantVerificationService) {
+    const service = new VerificationService(
+      new OperationStore(operationsFile),
+      () => adapter.getState(),
+      (caseId) => adapter.verify(caseId),
+    );
+    await service.recoverUnknown();
+    serviceGlobal.__covenantVerificationService = service;
+  }
   return serviceGlobal.__covenantVerificationService;
 }

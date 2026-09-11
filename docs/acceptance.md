@@ -7,7 +7,7 @@
 | 0 기술 스파이크 | 실제 계약 주소·거래 ID·원장 조회 | 통과 |
 | 1 계약 확정 | 경계·변조·권한 회로 테스트 | 30/30 통과 |
 | 2 실제 어댑터·CLI | 실제 체인 3장면 | 통과 |
-| 3 비동기 API | confirmed/rejected/unknown, 멱등·복구 | 10/10 통과 |
+| 3 비동기 API | confirmed/rejected/unknown, 멱등·복구 | 13/13 통과 |
 | 4 UI 실제 연결 | 실제 원장 폴링·거래 증거 화면 | 통과 |
 | 5 E2E·보안 | 장애 주입·동시 요청·비밀 검사 | 통과 |
 | 6 배포·인계 | 새 Docker 빌드·외부 HTTPS·문서 | 임시 HTTPS 통과, 고정 URL 전환 필요 |
@@ -27,4 +27,4 @@
 
 ## 외부 HTTPS 확인
 
-2026-09-11 17:08 KST에 Cloudflare Quick Tunnel을 통해 `/api/state`의 `mode=midnight`, `currentRound=1`, 위 Docker 계약 주소를 외부에서 확인했습니다. Quick Tunnel 주소는 프로세스 종료 시 만료되므로 저장소에는 제출 URL로 고정하지 않습니다.
+2026-09-11 17:08 KST에 Cloudflare Quick Tunnel을 통해 `/api/state`의 `mode=midnight`, `currentRound=1`, 위 Docker 계약 주소를 외부에서 확인했습니다. 무인증 쓰기 지갑 노출을 막기 위해 확인 직후 터널을 종료했습니다. Quick Tunnel 주소는 만료됐으며 제출 URL로 사용하지 않습니다.

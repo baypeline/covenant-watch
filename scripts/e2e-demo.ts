@@ -13,6 +13,8 @@ const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'star
     COVENANT_ADAPTER: 'demo',
     NEXT_PUBLIC_APP_MODE: 'demo',
     COVENANT_OPERATIONS_FILE: join(runtimeDirectory, 'operations.json'),
+    COVENANT_ENABLE_OPERATOR_HTTP: 'true',
+    COVENANT_OPERATOR_TOKEN: 'e2e-operator-token',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -22,14 +24,21 @@ server.stderr.on('data', (chunk) => { serverOutput += chunk.toString(); });
 
 try {
   await waitUntilReady();
-  const initial = await api('/api/admin/reset', { method: 'POST' });
+  const publicState = await api('/api/state');
+  assert(publicState.status === 200, 'public state query failed');
+  assert(publicState.body.state.currentRound === 1, 'public state DTO is missing nested ledger state');
+  assert(typeof publicState.body.fetchedAt === 'string', 'public state DTO is missing fetchedAt');
+  assert(publicState.body.cash === undefined && publicState.body.state.cash === undefined, 'public state exposed private cash');
+  const unauthorizedReset = await api('/api/admin/reset', { method: 'POST' });
+  assert(unauthorizedReset.status === 401 && unauthorizedReset.body.code === 'UNAUTHORIZED', 'operator authentication failed');
+  const initial = await operatorApi('/api/admin/reset');
   assert(initial.status === 200 && initial.body.state.currentRound === 1, 'demo reset failed');
 
   const malformed = await api('/api/verify', {
     method: 'POST',
     body: JSON.stringify({ caseId: 'unknown', requestId: 'e2e-bad-request', expectedRound: 1 }),
   });
-  assert(malformed.status === 400 && malformed.body.code === 'BAD_REQUEST', 'BAD_REQUEST mapping failed');
+  assert(malformed.status === 400 && malformed.body.code === 'INVALID_REQUEST', 'INVALID_REQUEST mapping failed');
 
   const staleState = await api('/api/verify', {
     method: 'POST',
@@ -48,7 +57,7 @@ try {
   });
   assert(idempotentRetry.body.operationId === roundOne.operationId, 'idempotent retry created another operation');
 
-  const advanced = await api('/api/admin/advance', { method: 'POST' });
+  const advanced = await operatorApi('/api/admin/advance');
   assert(advanced.body.state.currentRound === 2 && advanced.body.state.approvedRound === 1, 'round advance failed');
 
   const insufficient = await startAndWait('round-2-fail', 'e2e-insufficient', 2);
@@ -111,6 +120,13 @@ async function api(pathname: string, init?: RequestInit) {
     headers: { 'content-type': 'application/json', ...init?.headers },
   });
   return { status: response.status, body: await response.json() as any };
+}
+
+function operatorApi(pathname: string) {
+  return api(pathname, {
+    method: 'POST',
+    headers: { authorization: 'Bearer e2e-operator-token' },
+  });
 }
 
 function assert(condition: unknown, message: string): asserts condition {

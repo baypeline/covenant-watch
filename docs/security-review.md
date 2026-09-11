@@ -14,6 +14,7 @@
 - `requestId`와 요청 fingerprint로 같은 요청의 재시도를 멱등 처리합니다.
 - 프로세스당 활성 검증을 하나로 제한해 지갑 nonce·원장 상태 경쟁을 줄입니다.
 - operation과 Midnight runtime 파일은 임시 파일 작성 후 rename하며 디렉터리 `0700`, 파일 `0600`을 사용합니다.
+- 관리자 HTTP 경로는 기본 비활성화하며, 활성화 시 운영 토큰을 상수 시간 비교합니다. 외부 데모 URL은 별도의 앞단 접근제어가 필요합니다.
 - 실제 어댑터 초기화 실패는 `503`이며 demo 어댑터로 강등하지 않습니다.
 - 계약의 범위·권한·커밋먼트·중복 승인 검사는 Compact 회로와 생성 바인딩 테스트에서 함께 검증합니다.
 - `pnpm security:check`는 추적된 비밀 파일, 대표 credential signature, 비어 있지 않은 지갑 seed·private-state 비밀번호를 검사합니다.
@@ -30,4 +31,4 @@
 
 - 로컬 genesis seed와 기본 private-state 비밀번호는 `undeployed` 네트워크 전용입니다. 외부 네트워크에서는 비밀 저장소 주입을 강제합니다.
 - 공개 배포에서는 관리자용 기간 전환·초기화 Route에 별도 인증과 rate limit을 붙여야 합니다.
-- `unknown` 작업의 transaction ID가 확보된 경우 indexer 조회로 확정 상태를 수동 복구하는 운영 절차가 필요합니다.
+- `unknown` 작업의 transaction ID가 확보되고 같은 기간 승인이 공개 원장에서 확인되면 자동으로 확정 복구합니다. 그 외에는 자동 재제출 없이 수동 거래 조회가 필요합니다.
