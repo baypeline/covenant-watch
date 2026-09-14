@@ -26,6 +26,7 @@ import * as Rx from 'rxjs';
 import type { CaseId, CovenantErrorCode, LedgerState, VerifyResponse } from '@/types/covenant';
 import { cases } from '@/types/covenant';
 import type { CovenantAdapter, VerificationLifecycle } from './covenant-adapter';
+import { getMidnightEnvironment } from './midnight-environment';
 import {
   Contract,
   ledger as decodeLedger,
@@ -70,10 +71,13 @@ class MidnightAdapter implements CovenantAdapter {
   static async create() {
     const networkId = process.env.MIDNIGHT_NETWORK_ID ?? 'undeployed';
     setNetworkId(networkId);
-    const environment = getEnvironment(networkId);
+    const environment = getMidnightEnvironment();
     const walletSeed = process.env.MIDNIGHT_WALLET_SEED
       || (networkId === 'undeployed' ? LOCAL_GENESIS_SEED : null);
     if (!walletSeed) throw new Error('MIDNIGHT_WALLET_SEED is required outside the undeployed network.');
+    if (!/^[0-9a-f]{64}$/i.test(walletSeed)) {
+      throw new Error('MIDNIGHT_WALLET_SEED must be a 64-character hexadecimal seed.');
+    }
     const privateStatePassword = process.env.MIDNIGHT_PRIVATE_STATE_PASSWORD
       || (networkId === 'undeployed' ? 'Covenant-local-2026!' : null);
     if (!privateStatePassword) throw new Error('MIDNIGHT_PRIVATE_STATE_PASSWORD is required outside the undeployed network.');
@@ -224,21 +228,6 @@ async function deployInitialContract(
     initialPrivateState: {},
     args: [fromHex(secrets.adminSecret), fromHex(secrets.companySecret), fromHex(secrets.companyId), initialCommitment],
   });
-}
-
-function getEnvironment(networkId: string): EnvironmentConfiguration {
-  const indexer = process.env.MIDNIGHT_INDEXER_URL ?? 'http://127.0.0.1:18088/api/v4/graphql';
-  const node = process.env.MIDNIGHT_NODE_URL ?? 'http://127.0.0.1:19944';
-  return {
-    walletNetworkId: networkId,
-    networkId,
-    indexer,
-    indexerWS: process.env.MIDNIGHT_INDEXER_WS_URL ?? indexer.replace(/^http/, 'ws').replace('/api/v4/graphql', '/api/v4/graphql/ws'),
-    node,
-    nodeWS: process.env.MIDNIGHT_NODE_WS_URL ?? node.replace(/^http/, 'ws'),
-    faucet: '',
-    proofServer: process.env.MIDNIGHT_PROOF_SERVER_URL ?? 'http://127.0.0.1:16300',
-  };
 }
 
 class LocalWallet implements WalletProvider, MidnightProvider {

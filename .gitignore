@@ -4,6 +4,8 @@ dist/
 coverage/
 .env
 .env.local
+.env.*
+!.env.*.example
 .pnpm-store/
 contract/src/managed/
 contract/zkir/

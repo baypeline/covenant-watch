@@ -6,6 +6,8 @@
 
 ## 새 환경 배포
 
+### 로컬 undeployed
+
 ```bash
 git clone git@github.com:baypeline/covenant-watch.git
 cd covenant-watch
@@ -23,6 +25,35 @@ curl http://localhost:9923/api/state
 - `MIDNIGHT_INDEXER_URL`, `MIDNIGHT_INDEXER_WS_URL`
 - `MIDNIGHT_NODE_URL`, `MIDNIGHT_NODE_WS_URL`
 - `MIDNIGHT_PROOF_SERVER_URL`
+
+### Preprod
+
+Preprod에서는 공식 node와 indexer를 사용하고 이 호스트에는 웹과 proof server만 실행합니다. `.env.example`은 로컬 개발용이므로 배포에 재사용하지 않습니다.
+
+```bash
+pnpm preprod:wallet:init
+pnpm preprod:wallet:address
+```
+
+출력된 `mn_addr_preprod` 주소를 Preprod Faucet에서 충전합니다. `.env.preprod`에는 지갑 시드와 private-state 암호가 들어 있으며 권한은 `0600`이어야 합니다. 해당 파일의 내용을 터미널, 이슈, 메신저 또는 로그에 출력하지 않습니다.
+
+충전이 확정되면 로컬 개발 스택을 내리고 Preprod proof server를 시작해 NIGHT를 DUST 생성에 등록합니다.
+
+```bash
+pnpm chain:down
+pnpm preprod:proof:up
+pnpm preprod:wallet:register
+```
+
+등록 거래와 양수 DUST 잔액이 출력된 뒤 서비스를 시작합니다.
+
+```bash
+pnpm preprod:config
+pnpm preprod:up
+curl --fail --max-time 900 http://127.0.0.1:9923/api/state
+```
+
+`/api/state`의 `network`가 `preprod`이고 계약 주소가 64자리이면 초기 배포가 완료된 것입니다. 계약 주소, 마지막 거래 ID, `covenant-watch-preprod_covenant_preprod_runtime` 볼륨을 함께 기록합니다. 이후 재시작은 기존 볼륨에서 같은 계약과 역할 비밀을 복구해야 합니다.
 
 외부 URL은 HTTPS를 사용해야 하며, 플랫폼의 요청 제한시간은 최초 상태 조회와 proof 제출을 고려해 10분 이상으로 설정합니다. `NEXT_PUBLIC_APP_MODE`와 `COVENANT_ADAPTER`는 모두 `midnight`로 고정합니다.
 
@@ -43,6 +74,15 @@ docker compose ps
 curl -fsS http://localhost:9923/api/health
 curl -fsS http://localhost:9923/api/state
 docker compose logs --tail=100 web indexer proof-server
+```
+
+Preprod는 모든 명령에 전용 파일을 사용합니다.
+
+```bash
+docker compose --env-file .env.preprod -f compose.preprod.yml ps
+curl -fsS http://127.0.0.1:9923/api/health
+curl -fsS http://127.0.0.1:9923/api/state
+docker compose --env-file .env.preprod -f compose.preprod.yml logs --tail=100 web proof-server
 ```
 
 `/api/health`는 프로세스 liveness만 확인합니다. `/api/state` 응답의 계약 주소와 `state.currentRound`, `state.approvedRound`가 실제 readiness 기준입니다.

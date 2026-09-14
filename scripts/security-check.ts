@@ -5,7 +5,7 @@ const trackedFiles = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' 
   .split('\0')
   .filter(Boolean);
 const forbiddenFiles = trackedFiles.filter((file) =>
-  file === '.env'
+  (/^\.env(?:\..+)?$/.test(file) && !file.endsWith('.example'))
   || file.startsWith('.covenant-runtime/')
   || /(^|\/)(id_[a-z0-9]+|[^/]+\.(pem|p12|pfx))$/i.test(file));
 
@@ -26,10 +26,22 @@ for (const file of trackedFiles) {
   for (const [name, pattern] of signatures) {
     if (new RegExp(pattern).test(content)) findings.push(`${name}: ${file}`);
   }
-  for (const variable of ['MIDNIGHT_WALLET_SEED', 'MIDNIGHT_PRIVATE_STATE_PASSWORD']) {
+  for (const variable of [
+    'MIDNIGHT_WALLET_SEED',
+    'MIDNIGHT_PRIVATE_STATE_PASSWORD',
+    'COVENANT_OPERATOR_TOKEN',
+    'CLOUDFLARE_TUNNEL_TOKEN',
+  ]) {
     const assignment = new RegExp(`^${variable}=(.+)$`, 'm').exec(content);
-    if (assignment?.[1].trim()) findings.push(`hard-coded ${variable}: ${file}`);
+    if (assignment && !isPlaceholder(assignment[1])) findings.push(`hard-coded ${variable}: ${file}`);
   }
+}
+
+function isPlaceholder(value: string) {
+  const normalized = value.trim().replace(/^(['"])(.*)\1$/, '$2').trim();
+  return !normalized
+    || (normalized.startsWith('<') && normalized.endsWith('>'))
+    || normalized.startsWith('${');
 }
 
 execFileSync('git', ['check-ignore', '--quiet', '.covenant-runtime/midnight-runtime.json']);

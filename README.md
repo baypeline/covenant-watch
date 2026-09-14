@@ -168,6 +168,25 @@ pnpm phase6:verify
 COVENANT_ADAPTER=midnight NEXT_PUBLIC_APP_MODE=midnight docker compose up -d
 ```
 
+공개 테스트넷 배포는 로컬 node·indexer를 실행하지 않는 Preprod 전용 구성을 사용합니다. 네트워크 ID와 공식 endpoint는 `compose.preprod.yml`에 함께 고정되어 Preview와 Preprod 설정이 섞이지 않으며, proof server만 이 호스트에서 실행합니다.
+
+```bash
+# 한 번만 실행합니다. 시드는 출력하지 않고 권한 0600의 .env.preprod에 저장합니다.
+pnpm preprod:wallet:init
+
+# 출력된 mn_addr_preprod 주소를 Faucet에서 충전한 뒤 실행합니다.
+pnpm chain:down
+pnpm preprod:proof:up
+pnpm preprod:wallet:register
+
+# DUST가 확인된 다음 웹과 proof server를 시작합니다.
+pnpm preprod:config
+pnpm preprod:up
+curl --fail --max-time 900 http://127.0.0.1:9923/api/state
+```
+
+첫 `/api/state` 요청은 지갑 동기화 후 새 계약을 Preprod에 배포합니다. 성공 응답의 `network`가 `preprod`인지 확인하고 계약 주소와 거래 ID를 Explorer에서 대조합니다. `.env.preprod`와 `covenant-watch-preprod_covenant_preprod_runtime` 볼륨은 한 세트로 취급하며, 시드나 런타임 비밀 파일을 Git에 추가하지 않습니다.
+
 - [운영 런북](docs/runbook.md): 새 환경 배포, readiness, 백업·복구, 장애 대응, 롤백
 - [3분 영상 대본](docs/demo-video-script.md): 제출 영상 장면과 발화 순서
 - [단계별 인수 결과](docs/acceptance.md): 실제 계약·거래 증거와 완료 게이트
