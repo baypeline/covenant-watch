@@ -47,3 +47,12 @@ jobs:
 
       - name: Build application
         run: pnpm build
+
+      - name: Validate NAS deployment manifest
+        env:
+          COVENANT_IMAGE: ghcr.io/example/covenant-watch:sha-validation
+          COVENANT_DATA_DIR: /tmp/covenant-watch-nas-validation
+          MIDNIGHT_WALLET_SEED: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          MIDNIGHT_PRIVATE_STATE_PASSWORD: "compose-validation-only"
+          CLOUDFLARE_TUNNEL_TOKEN: "compose-validation-only"
+        run: docker compose --env-file .env.nas.example -f compose.nas.yml --profile tunnel config --quiet

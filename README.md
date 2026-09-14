@@ -193,6 +193,10 @@ curl --fail --max-time 900 http://127.0.0.1:9923/api/state
 
 계정 없는 임시 외부 미리보기는 `cloudflared tunnel --url http://127.0.0.1:9923`으로 열 수 있지만 쓰기 지갑을 가진 앱을 무인증 공개 URL에 노출하지 않습니다. 해커톤 제출 URL은 Cloudflare Access 같은 앞단 인증을 적용한 named tunnel이나 동일한 장기 실행 플랫폼에 배포해야 합니다. Quick Tunnel은 uptime 보장이 없어 제출 URL로 사용하지 않습니다.
 
+Mac에서 개발하고 Synology NAS에서 서비스할 때는 GHCR의 `linux/amd64` SHA 이미지, bind-mounted runtime, 선택적인 Cloudflare Tunnel로 구성합니다. 지갑 등록 CLI와 실제 웹 지갑은 같은 체크포인트 형식을 사용하므로 `.covenant-runtime/preprod-*.state`를 NAS runtime 디렉터리로 옮기면 최초 전체 동기화를 반복하지 않습니다.
+
+- [Synology NAS 배포](docs/nas-deployment.md): 이미지 발행, 지갑 이전, Tunnel 연결, 업데이트·롤백
+
 ## 3분 데모 순서
 
 1. `1기 · 정상 자료`를 검증해 1기 승인을 만듭니다.

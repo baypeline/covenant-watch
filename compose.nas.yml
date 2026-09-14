@@ -1,0 +1,94 @@
+name: covenant-watch-nas
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  web:
+    image: ${COVENANT_IMAGE:?Set COVENANT_IMAGE in .env.nas to a GHCR sha tag}
+    platform: linux/amd64
+    pull_policy: always
+    environment:
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_APP_MODE: midnight
+      COVENANT_ADAPTER: midnight
+      MIDNIGHT_NETWORK_ID: preprod
+      MIDNIGHT_INDEXER_URL: https://indexer.preprod.midnight.network/api/v4/graphql
+      MIDNIGHT_INDEXER_WS_URL: wss://indexer.preprod.midnight.network/api/v4/graphql/ws
+      MIDNIGHT_NODE_URL: https://rpc.preprod.midnight.network
+      MIDNIGHT_NODE_WS_URL: wss://rpc.preprod.midnight.network
+      MIDNIGHT_PROOF_SERVER_URL: http://proof-server:6300
+      MIDNIGHT_WALLET_SEED: ${MIDNIGHT_WALLET_SEED:?Set MIDNIGHT_WALLET_SEED in .env.nas}
+      MIDNIGHT_PRIVATE_STATE_PASSWORD: ${MIDNIGHT_PRIVATE_STATE_PASSWORD:?Set MIDNIGHT_PRIVATE_STATE_PASSWORD in .env.nas}
+      MIDNIGHT_CONTRACT_ADDRESS: ${MIDNIGHT_CONTRACT_ADDRESS:-}
+      COVENANT_RUNTIME_DIR: /app/.covenant-runtime
+      COVENANT_ENABLE_OPERATOR_HTTP: ${COVENANT_ENABLE_OPERATOR_HTTP:-false}
+      COVENANT_OPERATOR_TOKEN: ${COVENANT_OPERATOR_TOKEN:-}
+    ports:
+      - "${COVENANT_BIND_ADDRESS:-127.0.0.1}:${COVENANT_WEB_PORT:-9923}:3000"
+    volumes:
+      - type: bind
+        source: ${COVENANT_DATA_DIR:?Set COVENANT_DATA_DIR in .env.nas}/runtime
+        target: /app/.covenant-runtime
+    depends_on:
+      proof-server:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 2m
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+  proof-server:
+    image: midnightntwrk/proof-server:8.1.0@sha256:801bbc0340e9e96f16735f77b523f23c7459e3359842f7c79c2c53f4e994d531
+    platform: linux/amd64
+    pull_policy: if_not_present
+    command: ["midnight-proof-server", "-v"]
+    environment:
+      RUST_BACKTRACE: full
+    expose:
+      - "6300"
+    healthcheck:
+      test: ["CMD-SHELL", "echo > /dev/tcp/127.0.0.1/6300"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - backend
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 1m
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+  cloudflared:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:latest@sha256:b269e8abd07a5bf6f3f4be65d5050b2174eca89c56a0241a8ff32a16aec454e4
+    platform: linux/amd64
+    pull_policy: always
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - frontend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+networks:
+  frontend:
+  backend:
+    internal: true

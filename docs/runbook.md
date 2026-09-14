@@ -4,6 +4,8 @@
 
 프로덕션 이미지는 Node 22 Debian에서 Compact 0.31.1 계약을 컴파일한 뒤 Next standalone 서버와 ZK 자산을 묶습니다. 웹 서버는 외부 HTTPS 종단 뒤에 두고, indexer·node·proof server는 사설 네트워크에서만 접근시킵니다. `.covenant-runtime`은 재시작 후 계약·operation 복구에 필요하므로 영속 볼륨으로 마운트합니다.
 
+Synology NAS 운영 구성은 [NAS 배포 문서](nas-deployment.md)를 따릅니다. 운영 지갑도 등록 CLI와 동일한 직렬화 체크포인트를 1분 간격으로 저장하므로 NAS 이전 시 `preprod-*.state`를 함께 복구합니다.
+
 ## 새 환경 배포
 
 ### 로컬 undeployed

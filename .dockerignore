@@ -2,8 +2,14 @@ node_modules
 .next
 .git
 .env*
+.covenant-runtime
+.midnight-state.json
+midnight-level-db
 Dockerfile
 docs
 coverage
 contract/src/managed
+contract/keys
+contract/zkir
+*.log
 README.md
