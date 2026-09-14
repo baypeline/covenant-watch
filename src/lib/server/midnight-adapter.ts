@@ -20,13 +20,17 @@ import {
 } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import type { MidnightProvider, MidnightProviders, UnboundTransaction, WalletProvider } from '@midnight-ntwrk/midnight-js-types';
 import { ttlOneHour } from '@midnight-ntwrk/midnight-js-utils';
-import { type DustWalletOptions, type EnvironmentConfiguration, FluentWalletBuilder } from '@midnight-ntwrk/testkit-js';
+import type { DustWalletOptions, EnvironmentConfiguration } from '@midnight-ntwrk/testkit-js';
 import type { UnshieldedKeystore, WalletFacade } from '@midnight-ntwrk/wallet-sdk';
-import * as Rx from 'rxjs';
 import type { CaseId, CovenantErrorCode, LedgerState, VerifyResponse } from '@/types/covenant';
 import { cases } from '@/types/covenant';
 import type { CovenantAdapter, VerificationLifecycle } from './covenant-adapter';
 import { getMidnightEnvironment } from './midnight-environment';
+import {
+  buildPersistentWallet,
+  createWalletCheckpoint,
+  waitForWalletSync,
+} from './persistent-wallet';
 import {
   Contract,
   ledger as decodeLedger,
@@ -238,6 +242,7 @@ class LocalWallet implements WalletProvider, MidnightProvider {
     private readonly shieldedKeys: ZswapSecretKeys,
     private readonly dustKey: DustSecretKey,
     private readonly unshieldedKeystore: UnshieldedKeystore,
+    private readonly checkpoint: ReturnType<typeof createWalletCheckpoint>,
   ) {}
 
   static async create(environment: EnvironmentConfiguration, seed: string) {
@@ -246,23 +251,28 @@ class LocalWallet implements WalletProvider, MidnightProvider {
       additionalFeeOverhead: 1_000n,
       feeBlocksMargin: 5,
     };
-    const result = await FluentWalletBuilder.forEnvironment(environment)
-      .withDustOptions(dustOptions)
-      .withSeed(seed)
-      .buildWithoutStarting();
+    const result = await buildPersistentWallet(environment, seed, dustOptions);
     const keys = result as typeof result & {
       seeds: { shielded: Uint8Array; dust: Uint8Array };
       keystore: UnshieldedKeystore;
     };
-    const localWallet = new LocalWallet(
-      result.wallet,
-      ZswapSecretKeys.fromSeed(keys.seeds.shielded),
-      DustSecretKey.fromSeed(keys.seeds.dust),
-      keys.keystore,
-    );
-    await localWallet.wallet.start(localWallet.shieldedKeys, localWallet.dustKey);
-    await localWallet.waitUntilSynced();
-    return localWallet;
+    const shieldedKeys = ZswapSecretKeys.fromSeed(keys.seeds.shielded);
+    const dustKey = DustSecretKey.fromSeed(keys.seeds.dust);
+    await result.wallet.start(shieldedKeys, dustKey);
+    const checkpoint = createWalletCheckpoint(result.wallet, result.stateFiles);
+    const localWallet = new LocalWallet(result.wallet, shieldedKeys, dustKey, keys.keystore, checkpoint);
+    try {
+      await waitForWalletSync(localWallet.wallet);
+      await checkpoint.save();
+      return localWallet;
+    } catch (error) {
+      try {
+        await checkpoint.close();
+      } finally {
+        await localWallet.wallet.stop();
+      }
+      throw error;
+    }
   }
 
   getCoinPublicKey(): CoinPublicKey { return this.shieldedKeys.coinPublicKey; }
@@ -293,23 +303,13 @@ class LocalWallet implements WalletProvider, MidnightProvider {
       this.verificationLifecycle = undefined;
     }
   }
-  stop() { return this.wallet.stop(); }
-
-  private async waitUntilSynced() {
-    await Rx.firstValueFrom(this.wallet.state().pipe(
-      Rx.filter((state) =>
-        isComplete(state.shielded.state.progress)
-        && isComplete(state.unshielded.progress)
-        && isComplete(state.dust.state.progress)),
-      Rx.timeout({ first: 10 * 60_000 }),
-    ));
+  async stop() {
+    try {
+      await this.checkpoint.close();
+    } finally {
+      await this.wallet.stop();
+    }
   }
-}
-
-function isComplete(progress: unknown) {
-  if (!progress || typeof progress !== 'object') return false;
-  const method = (progress as { isStrictlyComplete?: unknown }).isStrictlyComplete;
-  return typeof method === 'function' && (method as () => boolean).call(progress);
 }
 
 function freshSecrets(): RuntimeSecrets {

@@ -36,8 +36,9 @@ RUN groupadd --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /workspace/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /workspace/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /workspace/contract/src/managed/covenant-watch ./contract/src/managed/covenant-watch
+COPY --from=builder --chown=nextjs:nodejs /workspace/scripts/node-websocket-polyfill.mjs ./scripts/node-websocket-polyfill.mjs
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=5 \
-  CMD ["node", "-e", "fetch('http://'+process.env.HOSTNAME+':3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-CMD ["node", "server.js"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+CMD ["node", "--import", "./scripts/node-websocket-polyfill.mjs", "server.js"]

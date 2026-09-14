@@ -1,21 +1,14 @@
-import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   DustAddress,
-  DustWallet,
   HDWallet,
-  InMemoryTransactionHistoryStorage,
   MidnightBech32m,
   Roles,
-  ShieldedWallet,
-  UnshieldedWallet,
-  WalletEntrySchema,
   createKeystore,
   generateRandomSeed,
-  mergeWalletEntries,
-  type DefaultConfiguration,
   type UnshieldedKeystore,
   type WalletFacade,
 } from '@midnight-ntwrk/wallet-sdk';
@@ -26,9 +19,14 @@ import {
   ZswapSecretKeys,
   unshieldedToken,
 } from '@midnight-ntwrk/midnight-js-protocol/ledger';
-import { type DustWalletOptions, WalletFactory, WalletSeeds } from '@midnight-ntwrk/testkit-js';
+import type { DustWalletOptions } from '@midnight-ntwrk/testkit-js';
 import * as Rx from 'rxjs';
 import { getMidnightEnvironment } from '../src/lib/server/midnight-environment.js';
+import {
+  buildPersistentWallet,
+  createWalletCheckpoint,
+  waitForWalletSync,
+} from '../src/lib/server/persistent-wallet.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const environmentFile = path.join(root, '.env.preprod');
@@ -90,8 +88,7 @@ async function registerForDust() {
     additionalFeeOverhead: 300_000_000_000_000n,
     feeBlocksMargin: 5,
   };
-  const stateFiles = walletStateFiles(seed);
-  const result = await buildRegistrationWallet(environment, seed, dustOptions, stateFiles);
+  const result = await buildPersistentWallet(environment, seed, dustOptions);
   const keys = result as typeof result & {
     seeds: { shielded: Uint8Array; dust: Uint8Array };
     keystore: UnshieldedKeystore;
@@ -100,12 +97,12 @@ async function registerForDust() {
   const dustKey = DustSecretKey.fromSeed(keys.seeds.dust);
   const shieldedKeys = ZswapSecretKeys.fromSeed(keys.seeds.shielded);
   await keys.wallet.start(shieldedKeys, dustKey);
-  const checkpoint = createWalletCheckpoint(keys.wallet, stateFiles);
+  const checkpoint = createWalletCheckpoint(keys.wallet, result.stateFiles);
 
   try {
     console.log(`Preprod funding address: ${keys.keystore.getBech32Address()}`);
     console.log('Synchronizing the Preprod wallet from its saved checkpoint...');
-    const state = await waitForWallet(keys.wallet);
+    const state = await waitForWalletSync(keys.wallet);
     await checkpoint.save();
     const nightBalance = state.unshielded.balances[unshieldedToken().raw] ?? 0n;
     if (nightBalance <= 0n) {
@@ -140,168 +137,12 @@ async function registerForDust() {
     await checkpoint.save();
     console.log(`Available DUST: ${formatDust(funded.dust.balance(new Date()))}`);
   } finally {
-    await checkpoint.close();
-    await keys.wallet.stop();
+    try {
+      await checkpoint.close();
+    } finally {
+      await keys.wallet.stop();
+    }
   }
-}
-
-async function buildRegistrationWallet(
-  environment: ReturnType<typeof getMidnightEnvironment>,
-  seed: string,
-  dustOptions: DustWalletOptions,
-  stateFiles: ReturnType<typeof walletStateFiles>,
-) {
-  const seeds = WalletSeeds.fromMasterSeed(seed);
-  const keystore = createKeystore(seeds.unshielded, 'preprod');
-  const configuration: DefaultConfiguration = {
-    indexerClientConnection: {
-      indexerHttpUrl: environment.indexer,
-      indexerWsUrl: environment.indexerWS,
-    },
-    provingServerUrl: new URL(environment.proofServer),
-    networkId: environment.walletNetworkId,
-    relayURL: new URL(environment.nodeWS),
-    txHistoryStorage: new InMemoryTransactionHistoryStorage(WalletEntrySchema, mergeWalletEntries),
-    costParameters: {
-      ledgerParams: dustOptions.ledgerParams,
-      additionalFeeOverhead: dustOptions.additionalFeeOverhead,
-      feeBlocksMargin: dustOptions.feeBlocksMargin,
-    },
-  };
-  const shielded = existsSync(stateFiles.shielded)
-    ? ShieldedWallet(configuration).restore(readFileSync(stateFiles.shielded, 'utf8'))
-    : WalletFactory.createShieldedWallet(configuration, seeds.shielded);
-  const unshielded = existsSync(stateFiles.unshielded)
-    ? UnshieldedWallet(configuration).restore(readFileSync(stateFiles.unshielded, 'utf8'))
-    : WalletFactory.createUnshieldedWallet(configuration, keystore);
-  const dust = existsSync(stateFiles.dust)
-    ? DustWallet(configuration).restore(readFileSync(stateFiles.dust, 'utf8'))
-    : WalletFactory.createDustWallet(configuration, seeds.dust, dustOptions);
-  const restored = Object.entries(stateFiles)
-    .filter(([, file]) => existsSync(file))
-    .map(([kind]) => kind);
-  if (restored.length > 0) console.log(`Restored wallet checkpoints: ${restored.join(', ')}`);
-  const wallet = await WalletFactory.createWalletFacade(configuration, shielded, unshielded, dust);
-  return { wallet, seeds, keystore };
-}
-
-async function waitForWallet(wallet: WalletFacade) {
-  const overallTimeoutMs = readPositiveDuration('PREPROD_SYNC_TIMEOUT_MS', 120 * 60_000);
-  const stallTimeoutMs = readPositiveDuration('PREPROD_SYNC_STALL_TIMEOUT_MS', 5 * 60_000);
-  const logIntervalMs = readPositiveDuration('PREPROD_SYNC_LOG_INTERVAL_MS', 10_000);
-  let latest = 'waiting for the first wallet state';
-  let fingerprint = '';
-  let lastChangeAt = Date.now();
-
-  const progress = wallet.state().subscribe(
-    (state) => {
-      const shieldedProgress = state.shielded.state.progress;
-      const nightProgress = state.unshielded.progress;
-      const dustProgress = state.dust.state.progress;
-      latest = [
-        `shielded ${shieldedProgress.appliedIndex}/${shieldedProgress.highestRelevantWalletIndex}`,
-        `NIGHT ${nightProgress.appliedId}/${nightProgress.highestTransactionId}`,
-        `DUST ${dustProgress.appliedIndex}/${dustProgress.highestRelevantWalletIndex}`,
-        `connected=${shieldedProgress.isConnected && nightProgress.isConnected && dustProgress.isConnected}`,
-      ].join(' · ');
-      if (latest !== fingerprint) {
-        fingerprint = latest;
-        lastChangeAt = Date.now();
-      }
-    },
-  );
-  const progressTimer = setInterval(() => console.log(`Sync progress: ${latest}`), logIntervalMs);
-
-  let stallTimer: NodeJS.Timeout | undefined;
-  let overallTimer: NodeJS.Timeout | undefined;
-  const watchdog = new Promise<never>((_, reject) => {
-    stallTimer = setInterval(() => {
-      if (Date.now() - lastChangeAt >= stallTimeoutMs) {
-        reject(new Error(
-          `Wallet sync made no observable progress for ${formatDuration(stallTimeoutMs)}. Last state: ${latest}`,
-        ));
-      }
-    }, Math.min(logIntervalMs, 10_000));
-    overallTimer = setTimeout(() => {
-      reject(new Error(
-        `Wallet sync exceeded ${formatDuration(overallTimeoutMs)}. Last state: ${latest}`,
-      ));
-    }, overallTimeoutMs);
-  });
-
-  try {
-    return await Promise.race([
-      wallet.waitForSyncedState(),
-      watchdog,
-    ]);
-  } finally {
-    progress.unsubscribe();
-    clearInterval(progressTimer);
-    if (stallTimer) clearInterval(stallTimer);
-    if (overallTimer) clearTimeout(overallTimer);
-  }
-}
-
-function createWalletCheckpoint(wallet: WalletFacade, stateFiles: ReturnType<typeof walletStateFiles>) {
-  let active: Promise<void> | null = null;
-  const save = async () => {
-    if (active) return active;
-    active = (async () => {
-      const states = await Promise.all([
-        wallet.shielded.serializeState(),
-        wallet.unshielded.serializeState(),
-        wallet.dust.serializeState(),
-      ]);
-      mkdirSync(path.dirname(stateFiles.dust), { recursive: true, mode: 0o700 });
-      for (const [kind, state] of Object.entries({
-        shielded: states[0],
-        unshielded: states[1],
-        dust: states[2],
-      })) {
-        const stateFile = stateFiles[kind as keyof typeof stateFiles];
-        const temporaryFile = `${stateFile}.${process.pid}.tmp`;
-        writeFileSync(temporaryFile, state, { mode: 0o600 });
-        renameSync(temporaryFile, stateFile);
-        chmodSync(stateFile, 0o600);
-      }
-    })().finally(() => { active = null; });
-    return active;
-  };
-  const timer = setInterval(() => {
-    void save().catch((error) => console.warn(`Could not save DUST checkpoint: ${String(error)}`));
-  }, 60_000);
-  return {
-    save,
-    async close() {
-      clearInterval(timer);
-      await save();
-    },
-  };
-}
-
-function walletStateFiles(seed: string) {
-  const walletId = createHash('sha256').update(seed).digest('hex').slice(0, 16);
-  const runtimeDirectory = process.env.COVENANT_RUNTIME_DIR
-    ?? path.join(root, '.covenant-runtime');
-  return {
-    shielded: path.join(runtimeDirectory, `preprod-shielded-${walletId}.state`),
-    unshielded: path.join(runtimeDirectory, `preprod-unshielded-${walletId}.state`),
-    dust: path.join(runtimeDirectory, `preprod-dust-${walletId}.state`),
-  };
-}
-
-function readPositiveDuration(name: string, fallback: number) {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`${name} must be a positive integer in milliseconds.`);
-  }
-  return value;
-}
-
-function formatDuration(milliseconds: number) {
-  return `${Math.ceil(milliseconds / 60_000)} minute(s)`;
 }
 
 function warnWhenNodeVersionDiffers() {
