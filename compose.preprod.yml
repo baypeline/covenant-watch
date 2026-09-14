@@ -54,5 +54,28 @@ services:
     restart: unless-stopped
     logging: *default-logging
 
+  wallet-tool:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: development
+    environment:
+      MIDNIGHT_NETWORK_ID: preprod
+      MIDNIGHT_INDEXER_URL: https://indexer.preprod.midnight.network/api/v4/graphql
+      MIDNIGHT_INDEXER_WS_URL: wss://indexer.preprod.midnight.network/api/v4/graphql/ws
+      MIDNIGHT_NODE_URL: https://rpc.preprod.midnight.network
+      MIDNIGHT_NODE_WS_URL: wss://rpc.preprod.midnight.network
+      MIDNIGHT_PROOF_SERVER_URL: http://proof-server:6300
+      MIDNIGHT_WALLET_SEED: ${MIDNIGHT_WALLET_SEED:?Set MIDNIGHT_WALLET_SEED in .env.preprod}
+      COVENANT_RUNTIME_DIR: /workspace/.covenant-runtime
+    volumes:
+      - ./.covenant-runtime:/workspace/.covenant-runtime
+    depends_on:
+      proof-server:
+        condition: service_healthy
+    command: ["node", "--import", "./scripts/node-websocket-polyfill.mjs", "--import", "tsx", "scripts/preprod-wallet.ts", "register"]
+    init: true
+    logging: *default-logging
+
 volumes:
   covenant_preprod_runtime:
