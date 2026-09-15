@@ -6,6 +6,7 @@ import { AlertCircle, Check, ChevronDown, Copy, RefreshCw, RotateCcw } from 'luc
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { advanceSnapshot, getLedgerState, getVerification, getVerificationByRequestId, resetDemo, startVerification, watchVerification } from '@/lib/api';
+import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
 import { useCovenantStore } from '@/stores/useCovenantStore';
 import type { CaseId, CovenantErrorCode, LedgerState, OperationPhase, VerificationOperation, ViewMode } from '@/types/covenant';
@@ -300,6 +301,7 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
         </Content>
         {view === 'company' && state?.operatorActionsEnabled && <PageFooter><span /><ResetButton type="button" disabled={busy} onClick={() => resetMutation.mutate()}><RotateCcw size={14} /> 데모 초기화</ResetButton></PageFooter>}
       </Main>
+      <SiteFooter />
     </PageShell>
   );
 }
@@ -344,8 +346,8 @@ function shorten(value?: string) { return value ? `${value.slice(0, 12)}…${val
 function formatTime(value: string) { return new Date(value).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); }
 function formatDateTime(value: string) { return new Date(value).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
 
-const PageShell = styled.div`min-height:100vh;background:var(--color-canvas);`;
-const Main = styled.main`width:min(940px,calc(100% - 40px));margin:0 auto;padding:42px 0 28px;@media(max-width:720px){padding-top:30px;}`;
+const PageShell = styled.div`min-height:100vh;display:flex;flex-direction:column;background:var(--color-canvas);`;
+const Main = styled.main`width:min(940px,calc(100% - 40px));margin:0 auto;padding:42px 0 64px;flex:1;@media(max-width:720px){padding-top:30px;}`;
 const StepNavigation = styled.nav`width:min(720px,100%);margin-bottom:34px;ol{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--color-border);}`;
 const StepItem = styled.li<{ $active:boolean;$complete:boolean }>`position:relative;padding-bottom:12px;color:${p=>p.$active?'var(--color-text-primary)':p.$complete?'var(--color-action)':'var(--color-text-secondary)'};&::after{content:'';position:absolute;right:0;bottom:-1px;left:0;height:2px;background:${p=>p.$active?'var(--color-action)':'transparent'};}`;
 const StepLink = styled(Link)`display:flex;align-items:center;gap:8px;font-size:12px;font-weight:650;span{width:19px;height:19px;display:grid;place-items:center;border:1px solid currentColor;border-radius:50%;font-size:10px;}@media(max-width:460px){gap:5px;font-size:11px;}`;

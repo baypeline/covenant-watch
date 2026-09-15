@@ -43,7 +43,7 @@ function ThemeToggle() {
   return <ThemeButton type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'} title={theme === 'dark' ? '라이트 모드' : '다크 모드'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</ThemeButton>;
 }
 
-const Header = styled.header`border-bottom:1px solid var(--color-border);background:var(--color-surface);`;
+const Header = styled.header`background:var(--color-chrome);`;
 const HeaderInner = styled.div`width:min(1120px,calc(100% - 40px));min-height:58px;margin:0 auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px;@media(max-width:680px){grid-template-columns:1fr auto;}`;
 const Brand = styled(Link)`width:fit-content;color:var(--color-text-primary);font-size:14px;font-weight:720;letter-spacing:-.025em;`;
 const Navigation = styled.nav`height:58px;display:flex;align-items:stretch;gap:26px;@media(max-width:680px){display:none;}`;

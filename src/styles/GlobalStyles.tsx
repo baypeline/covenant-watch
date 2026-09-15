@@ -19,10 +19,11 @@ const globalStyles = css`
     color-scheme: light;
 
     /* Paper & Slate · light */
-    --color-canvas: #f7f9fa;
+    --color-canvas: #ffffff;
     --color-surface: #ffffff;
-    --color-surface-muted: #eef2f4;
+    --color-surface-muted: #f3f6f7;
     --color-surface-raised: #ffffff;
+    --color-chrome: #f4f8f9;
     --color-nav: rgba(255, 255, 255, 0.92);
     --color-text-primary: #1c242b;
     --color-text-secondary: #5e6973;
@@ -35,7 +36,7 @@ const globalStyles = css`
     --color-action-border: #86adbc;
     --color-on-action: #ffffff;
     --color-focus: #477f93;
-    --color-neutral-subtle: #eef2f4;
+    --color-neutral-subtle: #f3f6f7;
     --color-shadow: rgba(28, 36, 43, 0.08);
     --color-selection: rgba(45, 101, 122, 0.2);
 
@@ -78,6 +79,7 @@ const globalStyles = css`
       --color-surface: #30373d;
       --color-surface-muted: #394149;
       --color-surface-raised: #394149;
+      --color-chrome: #2c363a;
       --color-nav: rgba(39, 45, 50, 0.92);
       --color-text-primary: #f3f5f6;
       --color-text-secondary: #b5bec5;
@@ -112,6 +114,7 @@ const globalStyles = css`
     --color-surface: #30373d;
     --color-surface-muted: #394149;
     --color-surface-raised: #394149;
+    --color-chrome: #2c363a;
     --color-nav: rgba(39, 45, 50, 0.92);
     --color-text-primary: #f3f5f6;
     --color-text-secondary: #b5bec5;
