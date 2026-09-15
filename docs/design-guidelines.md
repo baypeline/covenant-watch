@@ -123,6 +123,26 @@
 - 진행 애니메이션은 실제 상태 변화를 설명할 때만 사용합니다. 분위기를 위한 반복 애니메이션은 넣지 않습니다.
 - 키보드 포커스를 항상 표시하고 `prefers-reduced-motion`을 존중합니다.
 
+## AI 슬롭 방지 기준
+
+AI 슬롭은 특정 색상이나 컴포넌트 하나가 아니라, 제품에 근거하지 않은 익숙한 장치가 여러 개 겹칠 때 발생하는 것으로 봅니다.
+
+- 모든 내용을 카드에 넣지 않습니다. 독립적으로 이동하거나 구분해야 하는 단위에만 컨테이너를 사용합니다.
+- 카드 안에 다시 둥근 카드를 중첩하지 않습니다. 간격과 구분선으로 먼저 위계를 만듭니다.
+- 한 요소에 테두리, 그림자, 색조 배경, 강조 띠를 동시에 적용하지 않습니다.
+- blur·glass·glow는 사용하지 않습니다. 그림자는 실제로 떠 있는 요소에만 제한합니다.
+- 일반 라벨을 알약 모양 배지로 만들지 않습니다. 배지는 상태나 필터처럼 짧고 분류 가능한 값에만 사용합니다.
+- 큰 제목 옆에 지나치게 작은 본문을 두지 않습니다. 보조 정보도 실제 사용 환경에서 읽을 수 있는 크기를 유지합니다.
+- 아이콘은 텍스트를 대신하는 장식이 아니라 행동이나 상태를 명확히 할 때만 사용합니다.
+- 로딩, 빈 상태, 실패, 권한 없음, 좁은 화면을 정상 화면과 함께 설계합니다.
+- 두 번째 페이지에서도 제목 크기, 행동 이름, 상태 색, 간격이 같은 의미로 유지되는지 확인합니다.
+
+검토 근거:
+
+- [InterfaceKit · What makes a website look AI-generated?](https://blog.interfacekit.io/what-makes-a-website-look-ai-generated)
+- [Design Slop Symptom Catalog](https://github.com/wpgaurav/design-slop/blob/main/references/slop-patterns.md)
+- [Foundey · AI Slop in UX](https://foundey.com/blog/ai-slop-in-ux-design)
+
 ## 검토 체크리스트
 
 - 첫 화면에서 사용자가 해야 할 일과 현재 상태를 바로 알 수 있는가?
