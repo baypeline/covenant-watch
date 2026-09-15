@@ -10,21 +10,25 @@ import { SiteHeader } from '@/components/SiteHeader';
 const processSteps = [
   {
     label: '자료 등록',
+    heading: '재무자료는 지문으로 남습니다',
     title: '검증할 기간과 자료의 지문을 등록합니다',
     body: '이번에 확인할 기간을 정하고, 회사 재무자료로 만든 고유한 지문을 원장에 등록합니다. 이 지문만으로는 원래 금액을 알아낼 수 없습니다.',
   },
   {
     label: '회사 요청',
+    heading: '실제 금액은 회사 안에 머뭅니다',
     title: '회사는 실제 금액으로 검증을 요청합니다',
     body: '회사는 보유 현금과 향후 30일 지급예정액을 선택합니다. 실제 수치는 증명을 만드는 동안에만 사용되고 공개 기록에는 포함되지 않습니다.',
   },
   {
     label: '비공개 검증',
+    heading: '금액 없이 약정 충족을 확인합니다',
     title: '등록된 자료와 약정 조건을 함께 검사합니다',
     body: '회사 권한, 현재 기간, 등록한 자료와의 일치 여부를 먼저 확인합니다. 이후 보유 현금이 지급예정액의 120% 이상인지 금액을 공개하지 않은 채 증명합니다.',
   },
   {
     label: '결과 기록',
+    heading: '확인된 결과만 원장에 기록합니다',
     title: '금융기관에는 검증 결과만 전달됩니다',
     body: '조건을 충족하면 승인된 기간과 거래 기록이 원장에 남습니다. 충족하지 못하면 승인은 기록되지 않으며, 두 경우 모두 실제 금액은 공개되지 않습니다.',
   },
@@ -35,15 +39,41 @@ export function HomeHero() {
   const stepRefs = useRef<Array<HTMLElement | null>>([]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries
-        .filter((entry) => entry.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-      if (visible) setActiveStep(Number((visible.target as HTMLElement).dataset.step));
-    }, { rootMargin: '-28% 0px -42%', threshold: [0, 0.25, 0.5, 0.75] });
+    let frameId = 0;
 
-    stepRefs.current.forEach((step) => step && observer.observe(step));
-    return () => observer.disconnect();
+    const updateActiveStep = () => {
+      frameId = 0;
+      const viewportCenter = window.innerHeight / 2;
+      let nextStep = 0;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+
+      stepRefs.current.forEach((step, index) => {
+        if (!step) return;
+        const bounds = step.getBoundingClientRect();
+        const distance = Math.abs(bounds.top + bounds.height / 2 - viewportCenter);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nextStep = index;
+        }
+      });
+
+      setActiveStep((currentStep) => currentStep === nextStep ? currentStep : nextStep);
+    };
+
+    const scheduleUpdate = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(updateActiveStep);
+    };
+
+    updateActiveStep();
+    window.addEventListener('scroll', scheduleUpdate, { passive: true });
+    window.addEventListener('resize', scheduleUpdate);
+
+    return () => {
+      window.removeEventListener('scroll', scheduleUpdate);
+      window.removeEventListener('resize', scheduleUpdate);
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
   }, []);
 
   return (
@@ -82,12 +112,14 @@ export function HomeHero() {
         </Hero>
 
         <ProcessSection id="how-it-works" aria-labelledby="how-it-works-title">
-          <ProcessHeader>
-            <SectionLabel>작동 방식</SectionLabel>
-            <ProcessTitle id="how-it-works-title">입력한 금액이 결과로 바뀌기까지</ProcessTitle>
-          </ProcessHeader>
           <ProcessGrid>
-            <VisualPanel aria-hidden="true"><ProcessVisual step={activeStep} /></VisualPanel>
+            <ProcessAside>
+              <ProcessHeader>
+                <SectionLabel>작동 방식</SectionLabel>
+                <ProcessTitle key={activeStep} id="how-it-works-title">{processSteps[activeStep].heading}</ProcessTitle>
+              </ProcessHeader>
+              <VisualPanel aria-hidden="true"><ProcessVisual step={activeStep} /></VisualPanel>
+            </ProcessAside>
             <StepList>
               {processSteps.map((step, index) => (
                 <ProcessStep
@@ -135,6 +167,10 @@ const arrowFloat = keyframes`
   0%, 100% { transform: translateY(-2px); }
   50% { transform: translateY(4px); }
 `;
+const processTitleEntrance = keyframes`
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
 const Title = styled.h1`display:grid;gap:7px;word-break:keep-all;animation:${heroEntrance} 800ms cubic-bezier(.22,1,.36,1) both;@media(prefers-reduced-motion:reduce){animation:none;}`;
 const TitleContext = styled.span`color:var(--color-text-secondary);font-size:clamp(23px,3.2vw,32px);font-weight:620;line-height:1.25;letter-spacing:-.045em;`;
 const TitlePrimary = styled.span`color:var(--color-text-primary);font-size:clamp(44px,6.2vw,68px);font-weight:760;line-height:1.08;letter-spacing:-.064em;`;
@@ -155,25 +191,26 @@ const ReceiptHash = styled.code`font:600 11px/1.4 ui-monospace,SFMono-Regular,mo
 const ReceiptFoot = styled.p`padding-top:18px;color:var(--color-text-secondary);font-size:11px;line-height:1.65;word-break:keep-all;`;
 const ScrollPrompt = styled.a`position:absolute;bottom:28px;left:50%;min-height:44px;padding:8px 12px;display:flex;align-items:center;gap:11px;color:var(--color-text-secondary);font-size:13px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;transform:translateX(-50%);animation:${scrollPromptEntrance} 800ms 1040ms cubic-bezier(.22,1,.36,1) both;&:hover{color:var(--color-text-primary);}span{display:inline-block;color:var(--color-action);font-size:20px;line-height:1;animation:${arrowFloat} 1500ms 1900ms ease-in-out infinite;}@media(max-width:920px){bottom:24px;}@media(prefers-reduced-motion:reduce){animation:none;span{animation:none;}}`;
 const ProcessSection = styled.section`padding-top:92px;scroll-margin-top:24px;@media(max-width:800px){padding-top:68px;}`;
-const ProcessHeader = styled.header`max-width:720px;padding-bottom:64px;@media(max-width:800px){padding-bottom:36px;}`;
+const ProcessHeader = styled.header`padding-bottom:30px;@media(max-width:800px){padding-bottom:22px;}`;
 const SectionLabel = styled.p`margin-bottom:12px;color:var(--color-action);font-size:12px;font-weight:700;`;
-const ProcessTitle = styled.h2`color:var(--color-text-primary);font-size:clamp(30px,4vw,44px);font-weight:720;line-height:1.2;letter-spacing:-.05em;word-break:keep-all;`;
+const ProcessTitle = styled.h2`height:2.4em;color:var(--color-text-primary);font-size:clamp(28px,3.2vw,36px);font-weight:720;line-height:1.2;letter-spacing:-.05em;word-break:keep-all;animation:${processTitleEntrance} 420ms cubic-bezier(.22,1,.36,1) both;@media(prefers-reduced-motion:reduce){animation:none;}`;
 const ProcessGrid = styled.div`display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);gap:clamp(56px,9vw,112px);align-items:start;@media(max-width:800px){display:block;}`;
-const VisualPanel = styled.div`position:sticky;top:28px;height:420px;background:var(--color-surface-muted);border-top:1px solid var(--color-border-strong);border-bottom:1px solid var(--color-border);@media(max-width:800px){top:0;z-index:2;height:300px;}`;
+const ProcessAside = styled.div`position:sticky;top:clamp(56px,10vh,96px);align-self:start;@media(max-width:800px){top:clamp(16px,4vh,28px);z-index:2;padding-top:16px;background:var(--color-canvas);}`;
+const VisualPanel = styled.div`height:420px;background:var(--color-surface-muted);border-top:1px solid var(--color-border-strong);border-bottom:1px solid var(--color-border);@media(max-width:800px){height:320px;}`;
 const visualEntrance = keyframes`
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 const VisualContent = styled.div`height:100%;padding:30px;display:flex;flex-direction:column;animation:${visualEntrance} 420ms cubic-bezier(.22,1,.36,1) both;@media(max-width:800px){padding:22px;}@media(prefers-reduced-motion:reduce){animation:none;}`;
-const VisualHeader = styled.div`display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--color-border);color:var(--color-text-secondary);font-size:10px;strong{font:650 10px/1 ui-monospace,SFMono-Regular,monospace;}`;
+const VisualHeader = styled.div`display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--color-border);color:var(--color-text-secondary);font-size:12px;strong{font:650 12px/1 ui-monospace,SFMono-Regular,monospace;}`;
 const VisualBody = styled.div`display:flex;flex:1;flex-direction:column;justify-content:center;`;
-const VisualTitle = styled.h3`margin-bottom:22px;color:var(--color-text-primary);font-size:20px;font-weight:700;letter-spacing:-.04em;`;
+const VisualTitle = styled.h3`margin-bottom:22px;color:var(--color-text-primary);font-size:23px;font-weight:700;letter-spacing:-.04em;`;
 const VisualRows = styled.dl`border-top:1px solid var(--color-border);`;
-const VisualRow = styled.div`min-height:50px;padding:12px 2px;display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid var(--color-border);font-size:11px;>span{color:var(--color-text-secondary);}>strong{color:var(--color-text-primary);font-weight:680;}>code{color:var(--color-text-primary);font:600 10px/1.4 ui-monospace,SFMono-Regular,monospace;}>em{color:var(--color-action);font-style:normal;font-weight:650;}`;
-const Redacted = styled.span`overflow:hidden;color:var(--color-text-primary)!important;font:11px/1 ui-monospace,SFMono-Regular,monospace;letter-spacing:1px;opacity:.72;white-space:nowrap;user-select:none;`;
-const CheckList = styled.ul`display:grid;border-top:1px solid var(--color-border);li{min-height:48px;padding:12px 2px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--color-border);color:var(--color-text-primary);font-size:11px;}i{width:17px;height:17px;display:grid;place-items:center;border:1px solid var(--color-success-border);border-radius:50%;color:var(--color-success);font-size:9px;font-style:normal;}`;
-const FinalResult = styled.strong`margin:-4px 0 22px;color:var(--color-success);font-size:34px;font-weight:740;letter-spacing:-.05em;`;
-const StepList = styled.ol`margin-top:-14vh;@media(max-width:800px){margin-top:0;}`;
+const VisualRow = styled.div`min-height:54px;padding:12px 2px;display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid var(--color-border);font-size:13px;>span{color:var(--color-text-secondary);}>strong{color:var(--color-text-primary);font-weight:680;}>code{color:var(--color-text-primary);font:600 12px/1.4 ui-monospace,SFMono-Regular,monospace;}>em{color:var(--color-action);font-style:normal;font-weight:650;}`;
+const Redacted = styled.span`overflow:hidden;color:var(--color-text-primary)!important;font:13px/1 ui-monospace,SFMono-Regular,monospace;letter-spacing:1px;opacity:.72;white-space:nowrap;user-select:none;`;
+const CheckList = styled.ul`display:grid;border-top:1px solid var(--color-border);li{min-height:48px;padding:11px 2px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--color-border);color:var(--color-text-primary);font-size:13px;}i{width:20px;height:20px;display:grid;place-items:center;border:1px solid var(--color-success-border);border-radius:50%;color:var(--color-success);font-size:10px;font-style:normal;}`;
+const FinalResult = styled.strong`margin:-4px 0 22px;color:var(--color-success);font-size:40px;font-weight:740;letter-spacing:-.05em;`;
+const StepList = styled.ol`margin:0;`;
 const ProcessStep = styled.li<{ $active:boolean }>`min-height:72vh;padding:0 0 0 30px;border-left:2px solid ${p=>p.$active?'var(--color-action)':'var(--color-border)'};display:grid;grid-template-columns:44px minmax(0,1fr);align-content:center;gap:14px;opacity:${p=>p.$active?1:.38};transition:opacity 320ms ease,border-color 320ms ease;@media(max-width:800px){min-height:58vh;padding-left:18px;grid-template-columns:36px minmax(0,1fr);}`;
 const StepIndex = styled.span`padding-top:3px;color:var(--color-action);font:650 11px/1 ui-monospace,SFMono-Regular,monospace;`;
 const StepLabel = styled.p`margin-bottom:9px;color:var(--color-text-secondary);font-size:11px;font-weight:650;`;
