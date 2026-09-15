@@ -86,7 +86,7 @@ export function HomeHero() {
         <Hero>
           <HeroCopy>
             <Title><TitleContext>기업과 금융기관을 위한</TitleContext><TitlePrimary>금융약정 검증 서비스</TitlePrimary></Title>
-            <CorePromise>금액을 보여주지 않고, 약속을 지켰는지만 증명합니다.</CorePromise>
+            <CorePromise>금액은 공개하지 않고, 약정 기준을 충족했는지만 증명합니다.</CorePromise>
             <Actions>
               <PrimaryAction href="/request">검증 요청 시작</PrimaryAction>
               <SecondaryAction href="/status">검증 결과 확인</SecondaryAction>

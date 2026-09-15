@@ -126,18 +126,7 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
         : view === 'company'
           ? '검증 가능'
           : '검증 결과 없음';
-  const requestHeading = requestStep === 'select'
-    ? '검증할 재무 자료를 선택합니다'
-    : requestStep === 'review'
-      ? '검증 요청 내용을 확인합니다'
-      : '';
-  const requestDescription = requestStep === 'select'
-    ? state
-      ? `현재 검증 기간은 ${periodLabel}입니다. 같은 기간에 등록된 재무 자료를 선택합니다.`
-      : '현재 검증 기간을 확인하고 있습니다. 확인이 끝나면 재무 자료를 선택할 수 있습니다.'
-    : requestStep === 'review'
-      ? '선택한 자료와 공개될 정보를 마지막으로 확인합니다.'
-      : '';
+  const selectionPeriod = state ? `현재 검증 기간은 ${periodLabel}입니다.` : '현재 검증 기간을 확인하고 있습니다.';
   const selectedCaseData = cases[selectedCase];
 
   async function refreshOperation() {
@@ -189,12 +178,12 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
       <SiteHeader />
       <Main>
         {view === 'company' && <RequestSteps current={requestStep} />}
-        {!(view === 'company' && requestStep === 'intro') && <RecordHeader>
+        {view === 'bank' && <RecordHeader>
           <RecordHeading>
-            <PageTitle>{view === 'company' ? requestHeading : '금융약정 검증 결과'}</PageTitle>
-            <PageDescription>{view === 'company' ? requestDescription : '현재 기간에 원장에 확정된 약정 검증 결과를 확인합니다. 실제 금액은 공개되지 않습니다.'}</PageDescription>
+            <PageTitle>금융약정 검증 결과</PageTitle>
+            <PageDescription>현재 기간에 원장에 확정된 약정 검증 결과를 확인합니다. 실제 금액은 공개되지 않습니다.</PageDescription>
           </RecordHeading>
-          {view === 'bank' && <RecordStatus $approved={isCurrentApproved} $error={stateQuery.isError}>{statusLabel}</RecordStatus>}
+          <RecordStatus $approved={isCurrentApproved} $error={stateQuery.isError}>{statusLabel}</RecordStatus>
         </RecordHeader>}
 
         {view === 'bank' && <RecordMeta aria-label="현재 약정 요약">
@@ -203,27 +192,30 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
           <MetaItem><dt>마지막 조회</dt><dd>{state ? formatDateTime(state.updatedAt) : '—'}</dd></MetaItem>
         </RecordMeta>}
 
-        <Content $compactTop={view === 'company' && requestStep === 'intro'}>
+        <Content $compactTop={view === 'company'}>
           {view === 'company' ? (
             <>
               {requestStep === 'intro' && <>
                 <IntroStatement>
                   <IntroTitle>실제 금액은 금융기관에 공개되지 않습니다.</IntroTitle>
-                  <IntroDescription>금융기관은 현재 기간과 약정 충족 여부만 확인할 수 있습니다.</IntroDescription>
+                  <IntroDescription>회사는 보유 현금과 향후 30일 지급예정액을 검증에 사용합니다. 금융기관과 공개 원장에는 실제 금액 대신 약정 충족 여부만 표시됩니다.</IntroDescription>
                 </IntroStatement>
-                <ExplanationList aria-label="검증 과정">
-                  <ExplanationRow><strong>회사가 재무 자료를 선택합니다</strong><span>현재 기간에 해당하는 내부 자료를 선택합니다.</span></ExplanationRow>
-                  <ExplanationRow><strong>시스템이 조건을 확인합니다</strong><span>실제 금액은 검증에만 사용하며 금융기관이나 공개 원장에 표시하지 않습니다.</span></ExplanationRow>
-                  <ExplanationRow><strong>금융기관은 결과를 확인합니다</strong><span>금융기관은 공개 원장에서 검증 기간과 약정 충족 여부를 확인합니다.</span></ExplanationRow>
+                <ExplanationList aria-label="검증 진행 안내">
+                  <ExplanationRow><strong>현재 기간에 맞는 재무 자료를 선택합니다</strong><span>화면에 표시된 현재 검증 기간과 같은 기간의 자료를 선택합니다. 기간이 다르거나 원장에 등록한 자료와 일치하지 않으면 검증을 진행할 수 없습니다.</span></ExplanationRow>
+                  <ExplanationRow><strong>실제 금액으로 약정 기준을 확인합니다</strong><span>선택한 자료의 사용제한 없는 현금과 향후 30일 지급예정액으로 증명을 만듭니다. 실제 금액과 비밀값은 금융기관이나 공개 원장에 표시되지 않습니다.</span></ExplanationRow>
+                  <ExplanationRow><strong>충족한 결과만 원장에 확정합니다</strong><span>기준을 충족하면 해당 기간의 약정 충족 기록과 거래 ID가 원장에 남습니다. 충족하지 못하면 기록은 생성되지 않으며, 회사 화면에서 이유와 다음 행동을 확인할 수 있습니다.</span></ExplanationRow>
                 </ExplanationList>
                 <DisclosureGroup>
-                  <NativeDisclosure><summary>어떤 기준으로 확인합니까?</summary><p>사용제한 없는 현금이 향후 30일 지급예정액의 120% 이상인지 확인합니다.</p></NativeDisclosure>
-                  <NativeDisclosure><summary>어떤 정보가 공개됩니까?</summary><p>검증 기간, 약정 충족 상태, 등록 자료 지문만 공개됩니다. 현금, 지급예정액, 비밀값은 공개되지 않습니다.</p></NativeDisclosure>
+                  <NativeDisclosure><summary>어떤 기준으로 확인하나요?</summary><p>사용제한 없는 현금이 향후 30일 지급예정액의 120% 이상인지 확인합니다. 사용제한 없는 현금은 회사가 운영에 바로 사용할 수 있고 담보나 별도 조건으로 사용이 제한되지 않은 금액을 뜻합니다.</p></NativeDisclosure>
+                  <NativeDisclosure><summary>어떤 정보가 공개되나요?</summary><p>검증 기간, 약정 충족 여부, 등록 자료 지문이 공개됩니다. 현금, 지급예정액, 회사의 비밀값과 부족한 금액은 공개되지 않습니다.</p></NativeDisclosure>
+                  <NativeDisclosure><summary>기준을 충족하지 못하면 어떻게 되나요?</summary><p>약정 충족 기록은 생성되지 않으며 실제 금액이나 부족한 차액도 공개되지 않습니다. 회사는 재무 자료를 확인하거나 다른 자료를 선택한 뒤 다시 요청할 수 있습니다.</p></NativeDisclosure>
+                  <NativeDisclosure><summary>검증에는 얼마나 걸리나요?</summary><p>증명 생성과 원장 확정에는 시간이 걸릴 수 있습니다. 처리 중에는 현재 단계를 화면에서 확인할 수 있으며, 연결이 끊기거나 결과가 불명확하면 같은 요청의 상태를 다시 확인할 수 있습니다.</p></NativeDisclosure>
                 </DisclosureGroup>
                 <PageActions><PrimaryLink href="/request/select">검증할 자료 선택</PrimaryLink></PageActions>
               </>}
 
               {requestStep === 'select' && <RecordSection>
+                  <SelectionPeriod>{selectionPeriod}</SelectionPeriod>
                   <CaseList role="radiogroup" aria-label="검증할 자료">
                     {(Object.keys(cases) as CaseId[]).map((caseId) => {
                       const item = cases[caseId];
@@ -383,6 +375,7 @@ const PageActions = styled.div`display:flex;align-items:center;justify-content:f
 const PrimaryLink = styled(Link)`min-height:48px;padding:0 20px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;color:var(--color-on-action);background:var(--color-action);font-size:14px;font-weight:720;&:hover{background:var(--color-action-hover);}`;
 const BackLink = styled(Link)`min-height:48px;padding:0 11px;display:inline-flex;align-items:center;justify-content:center;color:var(--color-text-secondary);font-size:13px;font-weight:620;&:hover{color:var(--color-text-primary);}`;
 const SectionTitle = styled.h2`color:var(--color-text-primary);font-size:22px;font-weight:710;letter-spacing:-.04em;`;
+const SelectionPeriod = styled.h1`padding-bottom:22px;color:var(--color-text-primary);font-size:clamp(18px,2.2vw,21px);font-weight:680;line-height:1.5;letter-spacing:-.025em;`;
 const CaseList = styled.div`border-top:1px solid var(--color-border);`;
 const CaseButton = styled.button<{ $selected:boolean }>`width:100%;min-height:92px;padding:17px 12px;display:flex;align-items:center;border:0;border-bottom:1px solid var(--color-border);border-radius:0;color:var(--color-text-primary);background:${p=>p.$selected?'var(--color-action-subtle)':'transparent'};text-align:left;cursor:pointer;transition:background 120ms ease;&:hover:not(:disabled){background:var(--color-action-subtle-hover);}&:disabled{opacity:.46;cursor:not-allowed;}`;
 const RadioMark = styled.span<{ $selected:boolean }>`width:24px;height:24px;display:grid;place-items:center;flex:0 0 auto;margin-right:15px;border:1px solid ${p=>p.$selected?'var(--color-action)':'var(--color-border-strong)'};border-radius:50%;color:var(--color-on-action);background:${p=>p.$selected?'var(--color-action)':'transparent'};`;
