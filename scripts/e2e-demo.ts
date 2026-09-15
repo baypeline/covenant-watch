@@ -37,6 +37,8 @@ try {
     body: JSON.stringify({ caseId: 'round-1-pass', requestId: 'e2e-unauthorized', expectedRound: 1 }),
   });
   assert(unauthorizedVerification.status === 401 && unauthorizedVerification.body.code === 'AUTH_REQUIRED', 'demo authentication did not protect verification');
+  const unauthorizedReset = await api('/api/admin/reset', { method: 'POST' });
+  assert(unauthorizedReset.status === 401 && unauthorizedReset.body.code === 'AUTH_REQUIRED', 'demo authentication did not protect reset');
   const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -48,9 +50,7 @@ try {
   sessionCookie = setCookie.split(';', 1)[0];
   const authenticatedPage = await fetch(`${baseUrl}/request`, { headers: { cookie: sessionCookie }, redirect: 'manual' });
   assert(authenticatedPage.status === 200, 'authenticated user could not open protected page');
-  const unauthorizedReset = await api('/api/admin/reset', { method: 'POST' });
-  assert(unauthorizedReset.status === 401 && unauthorizedReset.body.code === 'UNAUTHORIZED', 'operator authentication failed');
-  const initial = await operatorApi('/api/admin/reset');
+  const initial = await api('/api/admin/reset', { method: 'POST' });
   assert(initial.status === 200 && initial.body.state.currentRound === 1, 'demo reset failed');
 
   const malformed = await api('/api/verify', {

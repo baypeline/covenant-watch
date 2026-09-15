@@ -4,6 +4,7 @@ import styled from '@emotion/styled';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Check, ChevronDown, Copy, RefreshCw, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { advanceSnapshot, getLedgerState, getVerification, getVerificationByRequestId, resetDemo, startVerification, watchVerification } from '@/lib/api';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -29,6 +30,7 @@ interface SavedRequest {
 type RequestStep = 'intro' | 'select' | 'review';
 
 export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewMode; requestStep?: RequestStep }) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { selectedCase, setSelectedCase, phase, setPhase } = useCovenantStore();
   const [showLedger, setShowLedger] = useState(false);
@@ -105,10 +107,15 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
   const resetMutation = useMutation({
     mutationFn: resetDemo,
     onSuccess: ({ state }) => {
+      sessionStorage.removeItem('covenant-watch:operation');
       queryClient.setQueryData(['ledger-state'], state);
       setSelectedCase('round-1-pass');
+      setPhase('idle');
       setResult(null);
       setOperation(null);
+      setSavedRequest(null);
+      setRequestMessage(null);
+      router.push('/request');
     },
   });
 
@@ -291,8 +298,19 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
               </DisclosureButton>
               {showLedger && <LedgerDetail><LedgerDetailItem label="네트워크" value={state ? `${state.mode === 'midnight' ? 'Midnight' : 'Demo'} · ${state.network}` : undefined} /><LedgerDetailItem label="등록 자료 지문" value={state?.snapshotCommitment} /><LedgerDetailItem label="최근 거래 ID" value={state?.lastTransactionId ?? undefined} /><LedgerDetailItem label="약정 계약 주소" value={state?.contractAddress} /></LedgerDetail>}
           </LedgerDisclosure>}
+
+          {view === 'bank' && <DemoRestart>
+            <DemoRestartCopy>
+              <strong>새로운 검증을 처음부터 진행할 수 있습니다.</strong>
+              <span>기존 원장 기록은 그대로 유지되며, 새로운 데모 상태를 준비하는 데 시간이 걸릴 수 있습니다.</span>
+              {resetMutation.isError && <ResetError role="alert">{resetMutation.error instanceof Error ? resetMutation.error.message : '새 데모를 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.'}</ResetError>}
+            </DemoRestartCopy>
+            <RestartButton type="button" disabled={busy || !state} onClick={() => {
+              if (window.confirm('새 데모를 시작할까요?\n\n기존 원장 기록은 유지되고 새로운 계약이 배포됩니다.')) resetMutation.mutate();
+            }}><RotateCcw size={16} />{resetMutation.isPending ? '새 데모 준비 중' : '새 데모 시작'}</RestartButton>
+          </DemoRestart>}
         </Content>
-        {view === 'company' && state?.operatorActionsEnabled && <PageFooter>{requestStep === 'review' ? <SecondaryButton type="button" disabled={busy || state.currentRound !== 1} onClick={() => advanceMutation.mutate()}>다음 검증 기간 열기</SecondaryButton> : <span />}<ResetButton type="button" disabled={busy} onClick={() => resetMutation.mutate()}><RotateCcw size={14} /> 데모 초기화</ResetButton></PageFooter>}
+        {view === 'company' && requestStep === 'review' && state?.operatorActionsEnabled && <PageFooter><span /><SecondaryButton type="button" disabled={busy || state.currentRound !== 1} onClick={() => advanceMutation.mutate()}>다음 검증 기간 열기</SecondaryButton></PageFooter>}
       </Main>
       <SiteFooter />
     </PageShell>
@@ -413,5 +431,8 @@ const DetailItem = styled.div`min-height:58px;padding:11px 0;display:flex;align-
 const SmallLabel = styled.span`color:var(--color-text-secondary);font-size:11px;`;
 const CodeText = styled.code`color:var(--color-text-primary);font:11px ui-monospace,SFMono-Regular,monospace;word-break:break-all;`;
 const CopyButton = styled.button`width:30px;height:30px;display:grid;place-items:center;flex:0 0 auto;border:0;border-radius:4px;color:var(--color-text-secondary);background:var(--color-surface-muted);cursor:pointer;&:hover{color:var(--color-action);}`;
+const DemoRestart = styled.section`display:flex;align-items:center;justify-content:space-between;gap:28px;padding:28px 4px 0;border-top:1px solid var(--color-border);@media(max-width:620px){align-items:stretch;flex-direction:column;gap:18px;}`;
+const DemoRestartCopy = styled.div`max-width:570px;display:grid;gap:6px;strong{color:var(--color-text-primary);font-size:15px;font-weight:680;}span{color:var(--color-text-secondary);font-size:13px;line-height:1.7;word-break:keep-all;}`;
+const RestartButton = styled.button`min-width:148px;height:48px;padding:0 18px;display:flex;align-items:center;justify-content:center;gap:8px;flex:0 0 auto;border:1px solid var(--color-border-strong);border-radius:5px;color:var(--color-text-primary);background:transparent;font-size:13px;font-weight:660;cursor:pointer;&:hover:not(:disabled){border-color:var(--color-action);color:var(--color-action);}&:disabled{opacity:.48;cursor:not-allowed;}@media(max-width:620px){width:100%;}`;
+const ResetError = styled.span`color:var(--color-danger)!important;`;
 const PageFooter = styled.footer`width:min(820px,100%);min-height:54px;margin:10px auto 0;display:flex;align-items:center;justify-content:space-between;color:var(--color-text-secondary);font-size:11px;`;
-const ResetButton = styled.button`display:flex;align-items:center;gap:6px;border:0;color:var(--color-text-secondary);background:transparent;font-size:11px;cursor:pointer;&:hover:not(:disabled){color:var(--color-action);}&:disabled{opacity:.4;cursor:not-allowed;}`;

@@ -59,7 +59,7 @@ curl --fail --max-time 900 http://127.0.0.1:9923/api/state
 
 외부 URL은 HTTPS를 사용해야 하며, 플랫폼의 요청 제한시간은 최초 상태 조회와 proof 제출을 고려해 10분 이상으로 설정합니다. `NEXT_PUBLIC_APP_MODE`와 `COVENANT_ADAPTER`는 모두 `midnight`로 고정합니다.
 
-외부 배포는 URL 전체에 접근제어를 적용해 공개 방문자가 서버 기업 지갑으로 증명을 반복 실행하지 못하게 합니다. 관리자 HTTP 경로는 기본적으로 `404`이며, 운영 CLI가 필요할 때만 아래 비밀값을 주입합니다.
+외부 배포는 URL 전체에 접근제어를 적용해 공개 방문자가 서버 기업 지갑으로 증명을 반복 실행하지 못하게 합니다. 기간 전환용 관리자 HTTP 경로는 기본적으로 `404`이며, 운영 CLI가 필요할 때만 아래 비밀값을 주입합니다.
 
 ```bash
 COVENANT_ENABLE_OPERATOR_HTTP=true
@@ -67,7 +67,7 @@ COVENANT_OPERATOR_TOKEN='<secret manager value>'
 COVENANT_OPERATOR_URL=https://restricted.example pnpm operator:advance
 ```
 
-토큰은 브라우저에 전달하지 않습니다. 로컬 전용 UI 제어가 필요하면 운영 HTTP를 활성화하되 토큰을 비워둘 수 있으며, 이 설정을 외부 URL에 사용하지 않습니다.
+토큰은 브라우저에 전달하지 않습니다. 로컬 전용 UI 제어가 필요하면 운영 HTTP를 활성화하되 토큰을 비워둘 수 있으며, 이 설정을 외부 URL에 사용하지 않습니다. 데모 로그인 사용자는 결과 확인 화면의 `새 데모 시작`으로 새 계약을 배포할 수 있습니다. 이 작업은 기존 원장 기록을 삭제하지 않으며, 같은 작업을 운영 CLI에서 실행하려면 `pnpm operator:reset`을 사용합니다.
 
 ## 일상 점검
 
@@ -105,4 +105,4 @@ docker compose --env-file .env.preprod -f compose.preprod.yml logs --tail=100 we
 
 ## 롤백
 
-애플리케이션 이미지만 이전 digest로 되돌리고 runtime 볼륨은 유지합니다. Compact 회로 또는 verifier key가 바뀐 릴리스는 기존 계약과 호환성을 확인하지 않고 롤백·재배포하지 않습니다. 데이터 삭제가 필요한 데모 초기화는 `pnpm operator:reset`으로 새 계약을 배포하며, 운영 데이터 삭제 수단으로 사용하지 않습니다.
+애플리케이션 이미지만 이전 digest로 되돌리고 runtime 볼륨은 유지합니다. Compact 회로 또는 verifier key가 바뀐 릴리스는 기존 계약과 호환성을 확인하지 않고 롤백·재배포하지 않습니다. 결과 확인 화면의 `새 데모 시작` 또는 `pnpm operator:reset`은 기존 데이터를 삭제하지 않고 새 계약을 배포합니다. 운영 데이터 삭제 수단으로 사용하지 않습니다.
