@@ -190,6 +190,7 @@ curl --fail --max-time 900 http://127.0.0.1:9923/api/state
 - [운영 런북](docs/runbook.md): 새 환경 배포, readiness, 백업·복구, 장애 대응, 롤백
 - [3분 영상 대본](docs/demo-video-script.md): 제출 영상 장면과 발화 순서
 - [단계별 인수 결과](docs/acceptance.md): 실제 계약·거래 증거와 완료 게이트
+- [디자인 가이드](docs/design-guidelines.md): UX 원칙, 문체, 라이트·다크 컬러 토큰과 사용 규칙
 
 계정 없는 임시 외부 미리보기는 `cloudflared tunnel --url http://127.0.0.1:9923`으로 열 수 있지만 쓰기 지갑을 가진 앱을 무인증 공개 URL에 노출하지 않습니다. 해커톤 제출 URL은 Cloudflare Access 같은 앞단 인증을 적용한 named tunnel이나 동일한 장기 실행 플랫폼에 배포해야 합니다. Quick Tunnel은 uptime 보장이 없어 제출 URL로 사용하지 않습니다.
 
