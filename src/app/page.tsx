@@ -1,5 +1,5 @@
-import { CovenantDashboard } from '@/components/CovenantDashboard';
+import { redirect } from 'next/navigation';
 
 export default function HomePage() {
-  return <CovenantDashboard />;
+  redirect('/request');
 }
