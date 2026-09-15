@@ -127,6 +127,14 @@ const heroEntrance = keyframes`
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 `;
+const scrollPromptEntrance = keyframes`
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+`;
+const arrowFloat = keyframes`
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(4px); }
+`;
 const Title = styled.h1`display:grid;gap:7px;word-break:keep-all;animation:${heroEntrance} 800ms cubic-bezier(.22,1,.36,1) both;@media(prefers-reduced-motion:reduce){animation:none;}`;
 const TitleContext = styled.span`color:var(--color-text-secondary);font-size:clamp(23px,3.2vw,32px);font-weight:620;line-height:1.25;letter-spacing:-.045em;`;
 const TitlePrimary = styled.span`color:var(--color-text-primary);font-size:clamp(44px,6.2vw,68px);font-weight:760;line-height:1.08;letter-spacing:-.064em;`;
@@ -145,7 +153,7 @@ const ReceiptDetails = styled.dl`padding:9px 0;>div{min-height:52px;display:flex
 const PrivateValue = styled.span`padding:4px 8px;color:var(--color-action);background:var(--color-action-subtle);font-size:11px;font-weight:700;`;
 const ReceiptHash = styled.code`font:600 11px/1.4 ui-monospace,SFMono-Regular,monospace;`;
 const ReceiptFoot = styled.p`padding-top:18px;color:var(--color-text-secondary);font-size:11px;line-height:1.65;word-break:keep-all;`;
-const ScrollPrompt = styled.a`position:absolute;bottom:32px;left:0;display:flex;align-items:center;gap:9px;color:var(--color-text-secondary);font-size:11px;font-weight:620;animation:${heroEntrance} 800ms 1040ms cubic-bezier(.22,1,.36,1) both;span{color:var(--color-action);font-size:15px;}@media(max-width:920px){bottom:28px;}@media(prefers-reduced-motion:reduce){animation:none;}`;
+const ScrollPrompt = styled.a`position:absolute;bottom:28px;left:50%;min-height:44px;padding:8px 12px;display:flex;align-items:center;gap:11px;color:var(--color-text-secondary);font-size:13px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;transform:translateX(-50%);animation:${scrollPromptEntrance} 800ms 1040ms cubic-bezier(.22,1,.36,1) both;&:hover{color:var(--color-text-primary);}span{display:inline-block;color:var(--color-action);font-size:20px;line-height:1;animation:${arrowFloat} 1500ms 1900ms ease-in-out infinite;}@media(max-width:920px){bottom:24px;}@media(prefers-reduced-motion:reduce){animation:none;span{animation:none;}}`;
 const ProcessSection = styled.section`padding-top:92px;scroll-margin-top:24px;@media(max-width:800px){padding-top:68px;}`;
 const ProcessHeader = styled.header`max-width:720px;padding-bottom:64px;@media(max-width:800px){padding-bottom:36px;}`;
 const SectionLabel = styled.p`margin-bottom:12px;color:var(--color-action);font-size:12px;font-weight:700;`;
