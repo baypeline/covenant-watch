@@ -2,10 +2,11 @@
 
 import styled from '@emotion/styled';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Check, ChevronDown, Copy, Moon, RefreshCw, RotateCcw, Sun } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, Copy, RefreshCw, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { advanceSnapshot, getLedgerState, getVerification, getVerificationByRequestId, resetDemo, startVerification, watchVerification } from '@/lib/api';
+import { SiteHeader } from '@/components/SiteHeader';
 import { useCovenantStore } from '@/stores/useCovenantStore';
 import type { CaseId, CovenantErrorCode, LedgerState, OperationPhase, VerificationOperation, ViewMode } from '@/types/covenant';
 import { cases } from '@/types/covenant';
@@ -181,7 +182,7 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
 
   return (
     <PageShell>
-      <AppHeader view={view} state={state} hasError={stateQuery.isError} />
+      <SiteHeader />
       <Main>
         {view === 'company' && <RequestSteps current={requestStep} />}
         <RecordHeader>
@@ -313,25 +314,6 @@ function RequestSteps({ current }: { current: RequestStep }) {
   return <StepNavigation aria-label="검증 요청 단계"><ol>{steps.map((step, index) => <StepItem key={step.key} $active={step.key === current} $complete={index < currentIndex}><StepLink href={step.href} aria-current={step.key === current ? 'step' : undefined}><span>{index < currentIndex ? <Check size={11} /> : index + 1}</span>{step.label}</StepLink></StepItem>)}</ol></StepNavigation>;
 }
 
-function AppHeader({ view, state, hasError }: { view: ViewMode; state?: LedgerState; hasError: boolean }) {
-  return <Header><HeaderInner><Brand href="/request" aria-label="Covenant Watch 검증 요청">Covenant Watch</Brand><Navigation aria-label="주요 메뉴"><NavigationLink href="/request" aria-current={view === 'company' ? 'page' : undefined}>검증 요청</NavigationLink><NavigationLink href="/status" aria-current={view === 'bank' ? 'page' : undefined}>결과 확인</NavigationLink></Navigation><HeaderActions><NetworkStatus $error={hasError}><LiveDot $error={hasError} $pending={!state && !hasError} /><span>{hasError ? '연결 실패' : state ? '정상 연결' : '연결 확인 중'}</span></NetworkStatus><ThemeToggle /></HeaderActions></HeaderInner></Header>;
-}
-
-function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark' | null>(null);
-  useEffect(() => {
-    const explicit = document.documentElement.dataset.theme;
-    setTheme(explicit === 'light' || explicit === 'dark' ? explicit : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  }, []);
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem('covenant-watch:theme', next);
-    setTheme(next);
-  }
-  return <ThemeButton type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'} title={theme === 'dark' ? '라이트 모드' : '다크 모드'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</ThemeButton>;
-}
-
 function Progress({ phase }: { phase: OperationPhase }) {
   const steps = [{ key: 'proving', label: '증명 생성' }, { key: 'submitting', label: '거래 제출' }, { key: 'confirming', label: '원장 확정' }];
   const effectivePhase = phase === 'confirmed' ? 'confirming' : phase;
@@ -363,15 +345,6 @@ function formatTime(value: string) { return new Date(value).toLocaleTimeString('
 function formatDateTime(value: string) { return new Date(value).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
 
 const PageShell = styled.div`min-height:100vh;background:var(--color-canvas);`;
-const Header = styled.header`border-bottom:1px solid var(--color-border);background:var(--color-surface);`;
-const HeaderInner = styled.div`width:min(940px,calc(100% - 40px));min-height:58px;margin:0 auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px;@media(max-width:720px){min-height:auto;padding:11px 0;grid-template-columns:1fr auto;gap:9px;}`;
-const Brand = styled(Link)`width:fit-content;color:var(--color-text-primary);font-size:14px;font-weight:720;letter-spacing:-.025em;`;
-const Navigation = styled.nav`height:58px;display:flex;align-items:stretch;gap:26px;@media(max-width:720px){grid-column:1/-1;grid-row:2;height:36px;justify-content:center;gap:32px;}`;
-const NavigationLink = styled(Link)`position:relative;display:flex;align-items:center;color:var(--color-text-secondary);font-size:13px;font-weight:560;&::after{content:'';position:absolute;right:0;bottom:-1px;left:0;height:2px;background:transparent;}&[aria-current='page']{color:var(--color-text-primary);font-weight:680;}&[aria-current='page']::after{background:var(--color-action);}&:hover{color:var(--color-text-primary);}`;
-const HeaderActions = styled.div`display:flex;align-items:center;justify-content:flex-end;gap:10px;`;
-const NetworkStatus = styled.div<{ $error:boolean }>`display:flex;align-items:center;gap:7px;color:${p=>p.$error?'var(--color-danger)':'var(--color-text-secondary)'};font-size:12px;@media(max-width:520px){span:last-child{display:none;}}`;
-const LiveDot = styled.span<{ $error:boolean;$pending?:boolean }>`width:7px;height:7px;flex:0 0 auto;border-radius:50%;background:${p=>p.$error?'var(--color-danger)':p.$pending?'var(--color-border-strong)':'var(--color-success)'};`;
-const ThemeButton = styled.button`width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:4px;color:var(--color-text-secondary);background:transparent;cursor:pointer;&:hover{color:var(--color-text-primary);background:var(--color-surface-muted);}`;
 const Main = styled.main`width:min(940px,calc(100% - 40px));margin:0 auto;padding:42px 0 28px;@media(max-width:720px){padding-top:30px;}`;
 const StepNavigation = styled.nav`width:min(720px,100%);margin-bottom:34px;ol{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--color-border);}`;
 const StepItem = styled.li<{ $active:boolean;$complete:boolean }>`position:relative;padding-bottom:12px;color:${p=>p.$active?'var(--color-text-primary)':p.$complete?'var(--color-action)':'var(--color-text-secondary)'};&::after{content:'';position:absolute;right:0;bottom:-1px;left:0;height:2px;background:${p=>p.$active?'var(--color-action)':'transparent'};}`;
