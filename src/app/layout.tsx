@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import type { ReactNode } from 'react';
 import { AppProviders } from '@/components/AppProviders';
 
@@ -12,10 +13,8 @@ const themeScript = `try{const t=localStorage.getItem('covenant-watch:theme');if
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
       <body>
+        <Script id="theme-initializer" strategy="beforeInteractive">{themeScript}</Script>
         <AppProviders>{children}</AppProviders>
       </body>
     </html>
