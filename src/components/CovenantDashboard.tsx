@@ -126,18 +126,18 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
         : view === 'company'
           ? '검증 가능'
           : '검증 결과 없음';
-  const requestHeading = requestStep === 'intro'
-    ? '검증 전에 공개 범위를 확인합니다'
-    : requestStep === 'select'
-      ? '검증할 재무 자료를 선택합니다'
-      : '검증 요청 내용을 확인합니다';
-  const requestDescription = requestStep === 'intro'
-    ? '재무 자료를 선택하기 전에 검증에 사용되는 정보와 금융기관이 확인할 수 있는 정보를 살펴봅니다.'
-    : requestStep === 'select'
-      ? state
-        ? `현재 검증 기간은 ${periodLabel}입니다. 같은 기간에 등록된 재무 자료를 선택합니다.`
-        : '현재 검증 기간을 확인하고 있습니다. 확인이 끝나면 재무 자료를 선택할 수 있습니다.'
-      : '선택한 자료와 공개될 정보를 마지막으로 확인합니다.';
+  const requestHeading = requestStep === 'select'
+    ? '검증할 재무 자료를 선택합니다'
+    : requestStep === 'review'
+      ? '검증 요청 내용을 확인합니다'
+      : '';
+  const requestDescription = requestStep === 'select'
+    ? state
+      ? `현재 검증 기간은 ${periodLabel}입니다. 같은 기간에 등록된 재무 자료를 선택합니다.`
+      : '현재 검증 기간을 확인하고 있습니다. 확인이 끝나면 재무 자료를 선택할 수 있습니다.'
+    : requestStep === 'review'
+      ? '선택한 자료와 공개될 정보를 마지막으로 확인합니다.'
+      : '';
   const selectedCaseData = cases[selectedCase];
 
   async function refreshOperation() {
@@ -189,13 +189,13 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
       <SiteHeader />
       <Main>
         {view === 'company' && <RequestSteps current={requestStep} />}
-        <RecordHeader>
+        {!(view === 'company' && requestStep === 'intro') && <RecordHeader>
           <RecordHeading>
             <PageTitle>{view === 'company' ? requestHeading : '금융약정 검증 결과'}</PageTitle>
             <PageDescription>{view === 'company' ? requestDescription : '현재 기간에 원장에 확정된 약정 검증 결과를 확인합니다. 실제 금액은 공개되지 않습니다.'}</PageDescription>
           </RecordHeading>
           {view === 'bank' && <RecordStatus $approved={isCurrentApproved} $error={stateQuery.isError}>{statusLabel}</RecordStatus>}
-        </RecordHeader>
+        </RecordHeader>}
 
         {view === 'bank' && <RecordMeta aria-label="현재 약정 요약">
           <MetaItem><dt>현재 검증 기간</dt><dd>{periodLabel}</dd></MetaItem>
@@ -203,13 +203,13 @@ export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewM
           <MetaItem><dt>마지막 조회</dt><dd>{state ? formatDateTime(state.updatedAt) : '—'}</dd></MetaItem>
         </RecordMeta>}
 
-        <Content>
+        <Content $compactTop={view === 'company' && requestStep === 'intro'}>
           {view === 'company' ? (
             <>
               {requestStep === 'intro' && <>
                 <IntroStatement>
-                  <strong>실제 금액은 금융기관에 공개되지 않습니다.</strong>
-                  <span>금융기관은 현재 기간과 약정 충족 여부만 확인할 수 있습니다.</span>
+                  <IntroTitle>실제 금액은 금융기관에 공개되지 않습니다.</IntroTitle>
+                  <IntroDescription>금융기관은 현재 기간과 약정 충족 여부만 확인할 수 있습니다.</IntroDescription>
                 </IntroStatement>
                 <ExplanationList aria-label="검증 과정">
                   <ExplanationRow><strong>회사가 재무 자료를 선택합니다</strong><span>현재 기간에 해당하는 내부 자료를 선택합니다.</span></ExplanationRow>
@@ -370,9 +370,11 @@ const PageDescription = styled.p`max-width:660px;margin-top:13px;color:var(--col
 const RecordStatus = styled.span<{ $approved:boolean;$error:boolean }>`flex:0 0 auto;margin-top:6px;padding:7px 10px;border-radius:3px;color:${p=>p.$error?'var(--color-danger)':p.$approved?'var(--color-success)':'var(--color-warning)'};background:${p=>p.$error?'var(--color-danger-bg)':p.$approved?'var(--color-success-bg)':'var(--color-warning-bg)'};font-size:13px;font-weight:720;`;
 const RecordMeta = styled.dl`width:min(820px,100%);margin-inline:auto;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--color-border-strong);border-bottom:1px solid var(--color-border);@media(max-width:600px){grid-template-columns:1fr;}`;
 const MetaItem = styled.div`min-height:86px;padding:18px 24px;border-right:1px solid var(--color-border);display:grid;align-content:center;gap:6px;&:first-of-type{padding-left:0;}&:last-of-type{border-right:0;}dt{color:var(--color-text-secondary);font-size:12px;}dd{color:var(--color-text-primary);font-size:16px;font-weight:680;}@media(max-width:600px){min-height:66px;padding:13px 0;border-right:0;border-bottom:1px solid var(--color-border);&:last-of-type{border-bottom:0;}}`;
-const Content = styled.div`width:min(820px,100%);margin-inline:auto;display:grid;gap:48px;padding-top:48px;`;
+const Content = styled.div<{ $compactTop:boolean }>`width:min(820px,100%);margin-inline:auto;display:grid;gap:48px;padding-top:${p=>p.$compactTop?'0':'48px'};`;
 const RecordSection = styled.section`background:transparent;`;
-const IntroStatement = styled.section`padding:30px 32px;border-top:1px solid var(--color-border-strong);border-bottom:1px solid var(--color-border);background:var(--color-chrome);display:grid;gap:8px;strong{color:var(--color-text-primary);font-size:24px;font-weight:720;letter-spacing:-.04em;}span{color:var(--color-text-secondary);font-size:14px;line-height:1.7;}@media(max-width:520px){padding:24px 20px;}`;
+const IntroStatement = styled.section`padding:30px 32px;border-top:1px solid var(--color-border-strong);border-bottom:1px solid var(--color-border);background:var(--color-chrome);display:grid;gap:8px;@media(max-width:520px){padding:24px 20px;}`;
+const IntroTitle = styled.h1`color:var(--color-text-primary);font-size:24px;font-weight:720;line-height:1.35;letter-spacing:-.04em;word-break:keep-all;`;
+const IntroDescription = styled.p`color:var(--color-text-secondary);font-size:14px;line-height:1.7;word-break:keep-all;`;
 const ExplanationList = styled.ol`border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border);`;
 const ExplanationRow = styled.li`display:grid;grid-template-columns:270px minmax(0,1fr);gap:28px;padding:24px 4px;border-bottom:1px solid var(--color-border);&:last-of-type{border-bottom:0;}strong{color:var(--color-text-primary);font-size:15px;font-weight:680;}span{color:var(--color-text-secondary);font-size:13px;line-height:1.7;}@media(max-width:620px){grid-template-columns:1fr;gap:6px;padding:20px 2px;}`;
 const DisclosureGroup = styled.div`display:grid;border-top:1px solid var(--color-border);`;
