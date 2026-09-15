@@ -52,12 +52,32 @@ export function HomeHero() {
 
       <Main>
         <Hero>
-          <Title><TitleContext>기업과 금융기관을 위한</TitleContext><TitlePrimary>금융약정 검증 서비스</TitlePrimary></Title>
-          <CorePromise>금액을 보여주지 않고, 약속을 지켰는지만 증명합니다.</CorePromise>
-          <Actions>
-            <PrimaryAction href="/request">검증 요청 시작</PrimaryAction>
-            <SecondaryAction href="/status">검증 결과 확인</SecondaryAction>
-          </Actions>
+          <HeroCopy>
+            <Title><TitleContext>기업과 금융기관을 위한</TitleContext><TitlePrimary>금융약정 검증 서비스</TitlePrimary></Title>
+            <CorePromise>금액을 보여주지 않고, 약속을 지켰는지만 증명합니다.</CorePromise>
+            <Actions>
+              <PrimaryAction href="/request">검증 요청 시작</PrimaryAction>
+              <SecondaryAction href="/status">검증 결과 확인</SecondaryAction>
+            </Actions>
+          </HeroCopy>
+          <VerificationReceipt aria-label="금융약정 검증 결과 예시">
+            <ReceiptHeader>
+              <div><ReceiptEyebrow>검증 결과 예시</ReceiptEyebrow><ReceiptName>금융약정 확인서</ReceiptName></div>
+              <ReceiptNumber>CW · 0001</ReceiptNumber>
+            </ReceiptHeader>
+            <ReceiptResult>
+              <span>약정 기준</span>
+              <strong>충족</strong>
+              <ReceiptMark aria-hidden="true">확인</ReceiptMark>
+            </ReceiptResult>
+            <ReceiptDetails>
+              <div><dt>검증 기간</dt><dd>1기</dd></div>
+              <div><dt>확인 항목</dt><dd>등록된 금융약정</dd></div>
+              <div><dt>실제 금액</dt><dd><PrivateValue>비공개</PrivateValue></dd></div>
+              <div><dt>원장 기록</dt><dd><ReceiptHash>000de9…1180</ReceiptHash></dd></div>
+            </ReceiptDetails>
+            <ReceiptFoot>금액을 공개하지 않고 조건 충족 여부만 확인했습니다.</ReceiptFoot>
+          </VerificationReceipt>
           <ScrollPrompt href="#how-it-works">작동 방식 살펴보기 <span aria-hidden="true">↓</span></ScrollPrompt>
         </Hero>
 
@@ -101,7 +121,8 @@ function ProcessVisual({ step }: { step: number }) {
 
 const Page = styled.div`min-height:100vh;display:flex;flex-direction:column;background:var(--color-canvas);`;
 const Main = styled.main`width:min(1120px,calc(100% - 40px));margin:0 auto;padding:0 0 72px;flex:1;`;
-const Hero = styled.section`position:relative;width:100%;max-width:850px;min-height:calc(100dvh - 58px);display:grid;align-content:center;`;
+const Hero = styled.section`position:relative;width:100%;min-height:calc(100dvh - 58px);padding:64px 0 92px;display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,420px);align-items:center;gap:clamp(52px,6vw,84px);@media(max-width:920px){grid-template-columns:1fr;gap:50px;padding-top:72px;}@media(max-width:520px){padding-top:54px;}`;
+const HeroCopy = styled.div`max-width:720px;`;
 const heroEntrance = keyframes`
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
@@ -113,7 +134,18 @@ const CorePromise = styled.p`margin-top:26px;color:var(--color-action);font-size
 const Actions = styled.div`display:flex;align-items:center;gap:10px;margin-top:32px;animation:${heroEntrance} 800ms 440ms cubic-bezier(.22,1,.36,1) both;@media(max-width:430px){align-items:stretch;flex-direction:column;}@media(prefers-reduced-motion:reduce){animation:none;}`;
 const PrimaryAction = styled(Link)`min-height:48px;padding:0 20px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;color:var(--color-on-action);background:var(--color-action);font-size:14px;font-weight:720;&:hover{background:var(--color-action-hover);}`;
 const SecondaryAction = styled(Link)`min-height:48px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--color-border-strong);border-radius:5px;color:var(--color-text-primary);background:transparent;font-size:14px;font-weight:650;&:hover{border-color:var(--color-action);color:var(--color-action);}`;
-const ScrollPrompt = styled.a`position:absolute;bottom:32px;left:0;display:flex;align-items:center;gap:9px;color:var(--color-text-secondary);font-size:11px;font-weight:620;animation:${heroEntrance} 800ms 660ms cubic-bezier(.22,1,.36,1) both;span{color:var(--color-action);font-size:15px;}@media(prefers-reduced-motion:reduce){animation:none;}`;
+const VerificationReceipt = styled.aside`position:relative;width:100%;padding:31px 31px 27px;background:var(--color-surface);border:1px solid var(--color-border-strong);box-shadow:0 18px 44px var(--color-shadow);animation:${heroEntrance} 900ms 760ms cubic-bezier(.22,1,.36,1) both;@media(max-width:920px){width:min(100%,500px);}@media(max-width:520px){padding:25px 23px 22px;}@media(prefers-reduced-motion:reduce){animation:none;}`;
+const ReceiptHeader = styled.header`display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:25px;border-bottom:1px solid var(--color-border);`;
+const ReceiptEyebrow = styled.p`margin-bottom:6px;color:var(--color-text-secondary);font-size:12px;font-weight:650;letter-spacing:.01em;`;
+const ReceiptName = styled.h2`color:var(--color-text-primary);font-size:22px;font-weight:720;letter-spacing:-.035em;`;
+const ReceiptNumber = styled.span`padding-top:2px;color:var(--color-text-secondary);font:600 11px/1.4 ui-monospace,SFMono-Regular,monospace;white-space:nowrap;`;
+const ReceiptResult = styled.div`position:relative;padding:32px 0 30px;border-bottom:1px solid var(--color-border);display:grid;gap:6px;span{color:var(--color-text-secondary);font-size:12px;font-weight:620;}strong{color:var(--color-success);font-size:40px;font-weight:760;line-height:1.08;letter-spacing:-.055em;}`;
+const ReceiptMark = styled.span`position:absolute;right:0;top:29px;width:59px;height:59px;display:grid;place-items:center;border:1px solid var(--color-success-border);border-radius:50%;color:var(--color-success)!important;font-size:13px!important;font-weight:720!important;transform:rotate(-8deg);`;
+const ReceiptDetails = styled.dl`padding:9px 0;>div{min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid var(--color-border);}dt{color:var(--color-text-secondary);font-size:13px;}dd{color:var(--color-text-primary);font-size:13px;font-weight:650;text-align:right;}`;
+const PrivateValue = styled.span`padding:4px 8px;color:var(--color-action);background:var(--color-action-subtle);font-size:11px;font-weight:700;`;
+const ReceiptHash = styled.code`font:600 11px/1.4 ui-monospace,SFMono-Regular,monospace;`;
+const ReceiptFoot = styled.p`padding-top:18px;color:var(--color-text-secondary);font-size:11px;line-height:1.65;word-break:keep-all;`;
+const ScrollPrompt = styled.a`position:absolute;bottom:32px;left:0;display:flex;align-items:center;gap:9px;color:var(--color-text-secondary);font-size:11px;font-weight:620;animation:${heroEntrance} 800ms 1040ms cubic-bezier(.22,1,.36,1) both;span{color:var(--color-action);font-size:15px;}@media(max-width:920px){bottom:28px;}@media(prefers-reduced-motion:reduce){animation:none;}`;
 const ProcessSection = styled.section`padding-top:92px;scroll-margin-top:24px;@media(max-width:800px){padding-top:68px;}`;
 const ProcessHeader = styled.header`max-width:720px;padding-bottom:64px;@media(max-width:800px){padding-bottom:36px;}`;
 const SectionLabel = styled.p`margin-bottom:12px;color:var(--color-action);font-size:12px;font-weight:700;`;
