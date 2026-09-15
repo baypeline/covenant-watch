@@ -2,7 +2,7 @@
 
 import styled from '@emotion/styled';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowRight, Check, ChevronDown, Copy, Moon, RefreshCw, RotateCcw, Sun } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, Copy, Moon, RefreshCw, RotateCcw, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { advanceSnapshot, getLedgerState, getVerification, getVerificationByRequestId, resetDemo, startVerification, watchVerification } from '@/lib/api';
@@ -24,7 +24,9 @@ interface SavedRequest {
   contractAddress: string;
 }
 
-export function CovenantDashboard({ view }: { view: ViewMode }) {
+type RequestStep = 'intro' | 'select' | 'review';
+
+export function CovenantDashboard({ view, requestStep = 'intro' }: { view: ViewMode; requestStep?: RequestStep }) {
   const queryClient = useQueryClient();
   const { selectedCase, setSelectedCase, phase, setPhase } = useCovenantStore();
   const [showLedger, setShowLedger] = useState(false);
@@ -111,6 +113,27 @@ export function CovenantDashboard({ view }: { view: ViewMode }) {
   const state = stateQuery.isError ? undefined : stateQuery.data;
   const isCurrentApproved = Boolean(state && state.approvedRound === state.currentRound);
   const busy = verifyMutation.isPending || advanceMutation.isPending || resetMutation.isPending || phase === 'unknown';
+  const periodLabel = state?.currentRound ? `${state.currentRound}기` : '확인 중';
+  const statusLabel = stateQuery.isError
+    ? '확인 불가'
+    : !state
+      ? '확인 중'
+      : isCurrentApproved
+        ? '약정 충족'
+        : view === 'company'
+          ? '검증 가능'
+          : '승인 대기';
+  const requestHeading = requestStep === 'intro'
+    ? '약속한 현금 기준을 지켰는지 확인합니다'
+    : requestStep === 'select'
+      ? '확인할 자료를 선택합니다'
+      : '요청 내용을 확인합니다';
+  const requestDescription = requestStep === 'intro'
+    ? '실제 금액은 금융기관에 보여주지 않고, 기준을 지켰는지만 전달합니다.'
+    : requestStep === 'select'
+      ? `현재 ${periodLabel}에 해당하는 재무 자료를 선택합니다.`
+      : '선택한 자료와 공개 범위를 확인한 뒤 검증을 요청합니다.';
+  const selectedCaseData = cases[selectedCase];
 
   async function refreshOperation() {
     if (!operation) {
@@ -160,98 +183,138 @@ export function CovenantDashboard({ view }: { view: ViewMode }) {
     <PageShell>
       <AppHeader view={view} state={state} hasError={stateQuery.isError} />
       <Main>
-        <PageIntro>
-          <IntroCopy>
-            <AudienceLabel>{view === 'company' ? '기업 담당자' : '금융기관 담당자'}</AudienceLabel>
-            <PageTitle>{view === 'company' ? '현재 기간의 약정 확인을 요청합니다' : '현재 기간의 약정 상태를 확인합니다'}</PageTitle>
-            <PageDescription>
-              {view === 'company'
-                ? '검증할 재무 자료를 선택하면 원금액을 공개하지 않고 충족 여부만 원장에 기록합니다.'
-                : '공개 원장에 확정된 기간과 승인 상태를 기준으로 현재 약정의 유효성을 확인합니다.'}
-            </PageDescription>
-          </IntroCopy>
-          <PeriodSummary><span>현재 검증 기간</span><strong>{state?.currentRound ? `${state.currentRound}기` : '확인 중'}</strong></PeriodSummary>
-        </PageIntro>
+        {view === 'company' && <RequestSteps current={requestStep} />}
+        <RecordHeader>
+          <RecordHeading>
+            <PageTitle>{view === 'company' ? requestHeading : `${periodLabel} 검증 결과`}</PageTitle>
+            <PageDescription>{view === 'company' ? requestDescription : '회사가 요청한 약정 검증 결과입니다. 실제 금액은 표시되지 않습니다.'}</PageDescription>
+          </RecordHeading>
+          {view === 'bank' && <RecordStatus $approved={isCurrentApproved} $error={stateQuery.isError}>{statusLabel}</RecordStatus>}
+        </RecordHeader>
 
-        <Workspace>
-          <PrimaryColumn>
-            {view === 'company' ? (
-              <RequestCard>
-                <SectionHeader>
-                  <div><SectionTitle>검증 자료 선택</SectionTitle><SectionDescription>현재 기간에 등록된 자료를 선택합니다.</SectionDescription></div>
-                  <PrivateBadge>원금액 비공개</PrivateBadge>
-                </SectionHeader>
-                <CaseList role="radiogroup" aria-label="검증할 자료">
-                  {(Object.keys(cases) as CaseId[]).map((caseId) => {
-                    const item = cases[caseId];
-                    const unavailable = !state || item.round > state.currentRound || (caseId === 'round-1-stale' && state.currentRound < 2);
-                    const selected = caseId === selectedCase;
-                    return (
-                      <CaseButton key={caseId} type="button" role="radio" aria-checked={selected} $selected={selected} disabled={busy || unavailable} onClick={() => { setSelectedCase(caseId); setResult(null); setOperation(null); }}>
-                        <RadioMark $selected={selected}>{selected && <Check size={13} />}</RadioMark>
-                        <CaseCopy><CaseName>{item.label}</CaseName><CaseHint>{unavailable ? '현재 기간에는 선택할 수 없습니다.' : item.helper}</CaseHint></CaseCopy>
-                        <PrivateAmounts aria-label="비공개 재무 값"><span><small>현금</small>{item.cash}</span><span><small>지급예정</small>{item.payments}</span></PrivateAmounts>
-                      </CaseButton>
-                    );
-                  })}
-                </CaseList>
-                <PrivacyCallout><PrivacyLabel>보호 범위</PrivacyLabel><div><strong>선택한 금액은 외부에 공개되지 않습니다</strong><span>공개 원장에는 원금액 대신 자료 커밋먼트와 충족 결과만 기록됩니다.</span></div></PrivacyCallout>
-                {phase !== 'idle' && <Progress phase={phase} />}
-                {result && <ResultPanel result={result} state={state} />}
-                {requestMessage && !result && <ConnectionNotice $success={false}><AlertCircle size={19} /><div><strong>상태 확인이 필요합니다</strong><span>{requestMessage}</span></div></ConnectionNotice>}
-                {operation && <OperationEvidence operation={operation} />}
-                <RequestFooter>
-                  <RequestFootnote>요청 후 증명 생성과 원장 확정까지 시간이 걸릴 수 있습니다.</RequestFootnote>
-                  <ActionGroup>
-                    {phase === 'unknown' && (operation || savedRequest) ? (
-                      <SecondaryButton type="button" onClick={() => void refreshOperation()}><RefreshCw size={16} /> 상태 다시 확인</SecondaryButton>
-                    ) : state?.operatorActionsEnabled ? (
-                      <SecondaryButton type="button" disabled={busy || state.currentRound !== 1} onClick={() => advanceMutation.mutate()}>2기 자료 등록</SecondaryButton>
-                    ) : null}
-                    <PrimaryButton type="button" disabled={busy || !state} onClick={() => verifyMutation.mutate(selectedCase)}>{verifyMutation.isPending ? phaseLabel(phase) : '약정 확인 요청'}<ArrowRight size={17} /></PrimaryButton>
-                  </ActionGroup>
-                </RequestFooter>
-              </RequestCard>
-            ) : (
-              <Certificate $approved={isCurrentApproved} $error={stateQuery.isError}>
-                <CertificateHeader><div><DocumentLabel>금액 없는 약정 확인서</DocumentLabel><DocumentId>현재 {state?.currentRound ?? '—'}기</DocumentId></div><StatusStamp $approved={isCurrentApproved} $error={stateQuery.isError}>{stateQuery.isError ? '확인 불가' : !state ? '확인 중' : isCurrentApproved ? '충족' : '승인 없음'}</StatusStamp></CertificateHeader>
-                <CertificateBody>
-                  <CertificateMark $approved={isCurrentApproved} $error={stateQuery.isError}>{!state && !stateQuery.isError ? <RefreshCw size={24} /> : stateQuery.isError || !isCurrentApproved ? <AlertCircle size={26} /> : <Check size={26} />}</CertificateMark>
-                  <div><CertificateTitle>{stateQuery.isError ? '최신 원장 상태를 확인할 수 없습니다' : !state ? '원장 상태를 확인하고 있습니다' : isCurrentApproved ? '현재 기간의 약정을 충족했습니다' : '현재 기간에 확정된 승인이 없습니다'}</CertificateTitle><CertificateDescription>{stateQuery.isError ? '원장 연결을 복구한 뒤 다시 확인해야 합니다. 이전 조회 결과는 현재 상태로 사용하지 않습니다.' : !state ? '원장의 현재 기간과 승인 기록을 가져오고 있습니다.' : isCurrentApproved ? '재무 원금액을 공개하지 않고 약정 충족 증명이 원장에 확정되었습니다.' : '이전 기간의 승인은 현재 기간의 승인으로 인정하지 않습니다.'}</CertificateDescription></div>
-                </CertificateBody>
-                <CertificateRule><span>확인 기준</span></CertificateRule>
-                <CertificateFacts>
-                  <CertificateFact><dt>현재 기간</dt><dd>{state?.currentRound ? `${state.currentRound}기` : '—'}</dd></CertificateFact>
-                  <CertificateFact><dt>승인된 기간</dt><dd>{state?.approvedRound ? `${state.approvedRound}기` : '없음'}</dd></CertificateFact>
-                  <CertificateFact><dt>마지막 확인</dt><dd>{state ? formatTime(state.updatedAt) : '—'}</dd></CertificateFact>
-                </CertificateFacts>
-                <CertificateNote>이 확인서는 현금 잔액이나 지급 예정액을 포함하지 않습니다. 기간, 승인 상태, 자료 커밋먼트만 공개 원장에서 확인합니다.</CertificateNote>
-              </Certificate>
-            )}
+        {view === 'bank' && <RecordMeta aria-label="현재 약정 요약">
+          <MetaItem><dt>검증 대상</dt><dd>{periodLabel}</dd></MetaItem>
+          <MetaItem><dt>기준을 충족한 기간</dt><dd>{state?.approvedRound ? `${state.approvedRound}기` : '없음'}</dd></MetaItem>
+          <MetaItem><dt>정보 확인 시각</dt><dd>{state ? formatDateTime(state.updatedAt) : '—'}</dd></MetaItem>
+        </RecordMeta>}
 
-            <LedgerDisclosure>
+        <Content>
+          {view === 'company' ? (
+            <>
+              {requestStep === 'intro' && <>
+                <IntroStatement>
+                  <strong>금융기관은 결과만 확인합니다.</strong>
+                  <span>회사가 선택한 현금과 지급예정액은 외부에 공개되지 않습니다.</span>
+                </IntroStatement>
+                <ExplanationList aria-label="검증 과정">
+                  <ExplanationRow><strong>회사가 재무 자료를 선택합니다</strong><span>현재 기간에 해당하는 내부 자료를 선택합니다.</span></ExplanationRow>
+                  <ExplanationRow><strong>시스템이 조건을 확인합니다</strong><span>회사 내부의 금액으로 계산하지만 금액 자체는 저장하지 않습니다.</span></ExplanationRow>
+                  <ExplanationRow><strong>금융기관은 결과를 확인합니다</strong><span>금융기관에는 확인한 기간과 충족 여부만 전달됩니다.</span></ExplanationRow>
+                </ExplanationList>
+                <DisclosureGroup>
+                  <NativeDisclosure><summary>어떤 기준으로 확인합니까?</summary><p>사용제한 없는 현금이 향후 30일 지급예정액의 120% 이상인지 확인합니다.</p></NativeDisclosure>
+                  <NativeDisclosure><summary>어떤 정보가 공개됩니까?</summary><p>기간, 승인 상태, 자료 커밋먼트만 공개됩니다. 현금, 지급예정액, 비밀값은 공개되지 않습니다.</p></NativeDisclosure>
+                </DisclosureGroup>
+                <PageActions><PrimaryLink href="/request/select">검증 시작</PrimaryLink></PageActions>
+              </>}
+
+              {requestStep === 'select' && <RecordSection>
+                  <CaseList role="radiogroup" aria-label="검증할 자료">
+                    {(Object.keys(cases) as CaseId[]).map((caseId) => {
+                      const item = cases[caseId];
+                      const unavailable = !state || item.round > state.currentRound || (caseId === 'round-1-stale' && state.currentRound < 2);
+                      const selected = caseId === selectedCase;
+                      return (
+                        <CaseButton key={caseId} type="button" role="radio" aria-checked={selected} $selected={selected} disabled={busy || unavailable} onClick={() => { setSelectedCase(caseId); setResult(null); setOperation(null); }}>
+                          <RadioMark $selected={selected}>{selected && <Check size={13} />}</RadioMark>
+                          <CaseCopy><CaseName>{item.label}</CaseName><CaseHint>{unavailable ? '현재 기간에는 선택할 수 없습니다.' : item.helper}</CaseHint></CaseCopy>
+                          <PrivateAmounts aria-label="회사 내부 재무 값"><span><small>현금</small>{item.cash}</span><span><small>지급예정</small>{item.payments}</span></PrivateAmounts>
+                        </CaseButton>
+                      );
+                    })}
+                  </CaseList>
+                  <SelectionNote>금액 단위는 백만원이며, 선택한 값은 금융기관에 공개되지 않습니다.</SelectionNote>
+                  <PageActions><BackLink href="/request">이전</BackLink><PrimaryLink href="/request/review">선택 내용 확인</PrimaryLink></PageActions>
+                </RecordSection>}
+
+              {requestStep === 'review' && <RecordSection>
+                  <SectionTitle>선택한 자료</SectionTitle>
+                  <SummaryList>
+                    <SummaryRow><dt>검증 기간</dt><dd>{selectedCaseData.round}기</dd></SummaryRow>
+                    <SummaryRow><dt>자료 구분</dt><dd>{selectedCaseData.label.replace(/^\d기 · /, '')}</dd></SummaryRow>
+                    <SummaryRow><dt>현금</dt><dd>{selectedCaseData.cash}백만원</dd></SummaryRow>
+                    <SummaryRow><dt>지급예정액</dt><dd>{selectedCaseData.payments}백만원</dd></SummaryRow>
+                  </SummaryList>
+                  <PrivacyNotice><strong>금융기관에는 금액이 공개되지 않습니다.</strong><span>검증 결과와 현재 기간만 원장에 기록됩니다.</span></PrivacyNotice>
+                  {phase !== 'idle' && <Progress phase={phase} />}
+                  {result && <ResultPanel result={result} state={state} />}
+                  {requestMessage && !result && <ConnectionNotice $success={false}><AlertCircle size={19} /><div><strong>상태 확인이 필요합니다</strong><span>{requestMessage}</span></div></ConnectionNotice>}
+                  {operation && <OperationEvidence operation={operation} />}
+                  <RequestFooter>
+                    <RequestFootnote>요청 후 증명 생성과 원장 확정까지 시간이 걸릴 수 있습니다.</RequestFootnote>
+                    <ActionGroup>
+                      {phase === 'unknown' && (operation || savedRequest) ? (
+                        <SecondaryButton type="button" onClick={() => void refreshOperation()}><RefreshCw size={16} /> 상태 다시 확인</SecondaryButton>
+                      ) : state?.operatorActionsEnabled ? (
+                        <SecondaryButton type="button" disabled={busy || state.currentRound !== 1} onClick={() => advanceMutation.mutate()}>2기 자료 등록</SecondaryButton>
+                      ) : null}
+                      {!busy && phase === 'idle' && <BackLink href="/request/select">자료 다시 선택</BackLink>}
+                      <PrimaryButton type="button" disabled={busy || !state} onClick={() => verifyMutation.mutate(selectedCase)}>{verifyMutation.isPending ? phaseLabel(phase) : '검증 요청'}</PrimaryButton>
+                    </ActionGroup>
+                  </RequestFooter>
+                </RecordSection>}
+            </>
+          ) : (
+            <>
+              <StatusNotice $approved={isCurrentApproved} $error={stateQuery.isError}>
+                <strong>{stateQuery.isError ? '최신 원장 상태를 확인할 수 없습니다' : !state ? '원장 상태를 확인하고 있습니다' : isCurrentApproved ? '현재 기간의 약정을 충족했습니다' : '현재 기간에 확정된 승인이 없습니다'}</strong>
+                <span>{stateQuery.isError ? '연결을 복구한 뒤 다시 확인해야 합니다.' : !state ? '원장 응답을 기다리고 있습니다.' : isCurrentApproved ? '약정 충족 증명이 공개 원장에 확정되었습니다.' : '이전 기간의 승인은 현재 기간의 승인으로 인정하지 않습니다.'}</span>
+              </StatusNotice>
+
+              <RecordSection>
+                <SectionTitle>약정 정보</SectionTitle>
+                <SummaryList>
+                  <SummaryRow><dt>검증 대상</dt><dd>{periodLabel}</dd></SummaryRow>
+                  <SummaryRow><dt>검증 결과</dt><dd>{isCurrentApproved ? '기준 충족' : '아직 승인되지 않음'}</dd></SummaryRow>
+                </SummaryList>
+              </RecordSection>
+
+              <RecordSection>
+                <SectionTitle>최근 기록</SectionTitle>
+                <HistoryList>
+                  <HistoryRow><time>{state ? formatDateTime(state.updatedAt) : '—'}</time><div><strong>원장 상태 확인</strong><span>현재 기간과 승인 상태를 조회했습니다.</span></div></HistoryRow>
+                  {state?.lastTransactionId && <HistoryRow><time>최근 거래</time><div><strong>약정 승인 기록</strong><code>{shorten(state.lastTransactionId)}</code></div></HistoryRow>}
+                </HistoryList>
+              </RecordSection>
+            </>
+          )}
+
+          {view === 'bank' && <LedgerDisclosure>
               <DisclosureButton type="button" onClick={() => setShowLedger((value) => !value)} aria-expanded={showLedger}>
-                <span><strong>원장 기록 상세</strong><small>계약 주소와 거래 증거를 확인합니다.</small></span>
+                <span><strong>기술 정보</strong><small>계약 주소와 원장 식별자를 확인합니다.</small></span>
                 <ChevronDown size={18} aria-hidden="true" style={{ transform: showLedger ? 'rotate(180deg)' : undefined }} />
               </DisclosureButton>
-              {showLedger && <LedgerDetail><LedgerDetailItem label="자료 커밋먼트" value={state?.snapshotCommitment} /><LedgerDetailItem label="마지막 거래" value={state?.lastTransactionId ?? undefined} /><LedgerDetailItem label="계약 주소" value={state?.contractAddress} /></LedgerDetail>}
-            </LedgerDisclosure>
-          </PrimaryColumn>
-
-          <SideColumn>
-            <PolicyCard><SideLabel>약정 기준</SideLabel><PolicyTitle>현금 여유 약정</PolicyTitle><Formula aria-label="현금은 지급 예정액의 1.2배 이상"><span>C</span><b>≥</b><span>P × 1.2</span></Formula><PolicyDescription>사용제한 없는 현금이 향후 30일 지급예정액의 120% 이상인지 확인합니다.</PolicyDescription></PolicyCard>
-            <ScopeCard><SideLabel>정보 공개 범위</SideLabel><ScopeList><ScopeItem><ScopeMark $private={false}>공개</ScopeMark><div><strong>확인에 필요한 정보</strong><span>기간 · 승인 상태 · 커밋먼트</span></div></ScopeItem><ScopeItem><ScopeMark $private>비공개</ScopeMark><div><strong>기업 내부에 남는 정보</strong><span>현금 · 지급액 · 비밀값</span></div></ScopeItem></ScopeList></ScopeCard>
-            <LedgerSummary><SideLabel>원장 연결</SideLabel><LedgerConnection $error={stateQuery.isError}><LiveDot $error={stateQuery.isError} $pending={!state && !stateQuery.isError} /><div><strong>{stateQuery.isError ? '연결 확인 필요' : state ? '정상 연결' : '연결 확인 중'}</strong><span>{stateQuery.isError ? '최신 상태를 가져오지 못했습니다.' : state ? `${state.mode === 'midnight' ? 'Midnight' : 'Demo'} · ${state.network}` : '원장 응답을 기다리고 있습니다.'}</span></div></LedgerConnection></LedgerSummary>
-          </SideColumn>
-        </Workspace>
-        <PageFooter><span>금액 단위 · 백만원</span>{state?.operatorActionsEnabled && <ResetButton type="button" disabled={busy} onClick={() => resetMutation.mutate()}><RotateCcw size={14} /> 데모 초기화</ResetButton>}</PageFooter>
+              {showLedger && <LedgerDetail><LedgerDetailItem label="네트워크" value={state ? `${state.mode === 'midnight' ? 'Midnight' : 'Demo'} · ${state.network}` : undefined} /><LedgerDetailItem label="자료 커밋먼트" value={state?.snapshotCommitment} /><LedgerDetailItem label="마지막 거래" value={state?.lastTransactionId ?? undefined} /><LedgerDetailItem label="계약 주소" value={state?.contractAddress} /></LedgerDetail>}
+          </LedgerDisclosure>}
+        </Content>
+        {view === 'company' && state?.operatorActionsEnabled && <PageFooter><span /><ResetButton type="button" disabled={busy} onClick={() => resetMutation.mutate()}><RotateCcw size={14} /> 데모 초기화</ResetButton></PageFooter>}
       </Main>
     </PageShell>
   );
 }
 
+function RequestSteps({ current }: { current: RequestStep }) {
+  const steps: Array<{ key: RequestStep; label: string; href: string }> = [
+    { key: 'intro', label: '안내', href: '/request' },
+    { key: 'select', label: '자료 선택', href: '/request/select' },
+    { key: 'review', label: '요청 확인', href: '/request/review' },
+  ];
+  const currentIndex = steps.findIndex((step) => step.key === current);
+  return <StepNavigation aria-label="검증 요청 단계"><ol>{steps.map((step, index) => <StepItem key={step.key} $active={step.key === current} $complete={index < currentIndex}><StepLink href={step.href} aria-current={step.key === current ? 'step' : undefined}><span>{index < currentIndex ? <Check size={11} /> : index + 1}</span>{step.label}</StepLink></StepItem>)}</ol></StepNavigation>;
+}
+
 function AppHeader({ view, state, hasError }: { view: ViewMode; state?: LedgerState; hasError: boolean }) {
-  return <Header><HeaderInner><Brand href="/request" aria-label="Covenant Watch 검증 요청"><BrandMark>CW</BrandMark><BrandName>Covenant Watch</BrandName></Brand><Navigation aria-label="주요 메뉴"><NavigationLink href="/request" aria-current={view === 'company' ? 'page' : undefined}>검증 요청</NavigationLink><NavigationLink href="/status" aria-current={view === 'bank' ? 'page' : undefined}>약정 현황</NavigationLink></Navigation><HeaderActions><NetworkStatus $error={hasError}><LiveDot $error={hasError} $pending={!state && !hasError} /><span>{hasError ? '원장 연결 실패' : state ? state.network : '연결 확인 중'}</span></NetworkStatus><ThemeToggle /></HeaderActions></HeaderInner></Header>;
+  return <Header><HeaderInner><Brand href="/request" aria-label="Covenant Watch 검증 요청">Covenant Watch</Brand><Navigation aria-label="주요 메뉴"><NavigationLink href="/request" aria-current={view === 'company' ? 'page' : undefined}>검증 요청</NavigationLink><NavigationLink href="/status" aria-current={view === 'bank' ? 'page' : undefined}>결과 확인</NavigationLink></Navigation><HeaderActions><NetworkStatus $error={hasError}><LiveDot $error={hasError} $pending={!state && !hasError} /><span>{hasError ? '연결 실패' : state ? '정상 연결' : '연결 확인 중'}</span></NetworkStatus><ThemeToggle /></HeaderActions></HeaderInner></Header>;
 }
 
 function ThemeToggle() {
@@ -297,42 +360,48 @@ function phaseLabel(phase: string) {
 
 function shorten(value?: string) { return value ? `${value.slice(0, 12)}…${value.slice(-8)}` : '—'; }
 function formatTime(value: string) { return new Date(value).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); }
+function formatDateTime(value: string) { return new Date(value).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
 
 const PageShell = styled.div`min-height:100vh;background:var(--color-canvas);`;
 const Header = styled.header`border-bottom:1px solid var(--color-border);background:var(--color-surface);`;
-const HeaderInner = styled.div`width:min(1120px,calc(100% - 40px));min-height:68px;margin:0 auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px;@media(max-width:720px){min-height:auto;padding:12px 0;grid-template-columns:1fr auto;gap:10px;}`;
-const Brand = styled(Link)`display:inline-flex;align-items:center;gap:10px;width:fit-content;`;
-const BrandMark = styled.span`width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--color-text-primary);border-radius:8px;color:var(--color-text-primary);font:760 10px/1 var(--font-pretendard);letter-spacing:-.02em;`;
-const BrandName = styled.span`color:var(--color-text-primary);font-size:15px;font-weight:700;letter-spacing:-.025em;@media(max-width:420px){display:none;}`;
-const Navigation = styled.nav`height:68px;display:flex;align-items:stretch;gap:28px;@media(max-width:720px){grid-column:1/-1;grid-row:2;height:38px;justify-content:center;gap:32px;}`;
+const HeaderInner = styled.div`width:min(940px,calc(100% - 40px));min-height:58px;margin:0 auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px;@media(max-width:720px){min-height:auto;padding:11px 0;grid-template-columns:1fr auto;gap:9px;}`;
+const Brand = styled(Link)`width:fit-content;color:var(--color-text-primary);font-size:14px;font-weight:720;letter-spacing:-.025em;`;
+const Navigation = styled.nav`height:58px;display:flex;align-items:stretch;gap:26px;@media(max-width:720px){grid-column:1/-1;grid-row:2;height:36px;justify-content:center;gap:32px;}`;
 const NavigationLink = styled(Link)`position:relative;display:flex;align-items:center;color:var(--color-text-secondary);font-size:13px;font-weight:560;&::after{content:'';position:absolute;right:0;bottom:-1px;left:0;height:2px;background:transparent;}&[aria-current='page']{color:var(--color-text-primary);font-weight:680;}&[aria-current='page']::after{background:var(--color-action);}&:hover{color:var(--color-text-primary);}`;
 const HeaderActions = styled.div`display:flex;align-items:center;justify-content:flex-end;gap:10px;`;
 const NetworkStatus = styled.div<{ $error:boolean }>`display:flex;align-items:center;gap:7px;color:${p=>p.$error?'var(--color-danger)':'var(--color-text-secondary)'};font-size:12px;@media(max-width:520px){span:last-child{display:none;}}`;
 const LiveDot = styled.span<{ $error:boolean;$pending?:boolean }>`width:7px;height:7px;flex:0 0 auto;border-radius:50%;background:${p=>p.$error?'var(--color-danger)':p.$pending?'var(--color-border-strong)':'var(--color-success)'};`;
 const ThemeButton = styled.button`width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:4px;color:var(--color-text-secondary);background:transparent;cursor:pointer;&:hover{color:var(--color-text-primary);background:var(--color-surface-muted);}`;
-const Main = styled.main`width:min(1120px,calc(100% - 40px));margin:0 auto;padding:52px 0 30px;@media(max-width:720px){padding-top:34px;}`;
-const PageIntro = styled.section`display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:34px;@media(max-width:680px){align-items:flex-start;flex-direction:column;gap:20px;}`;
-const IntroCopy = styled.div`max-width:720px;`;
-const AudienceLabel = styled.div`margin-bottom:12px;color:var(--color-action);font-size:12px;font-weight:720;`;
-const PageTitle = styled.h1`max-width:690px;color:var(--color-text-primary);font-size:clamp(30px,4vw,42px);font-weight:720;line-height:1.2;letter-spacing:-.046em;`;
-const PageDescription = styled.p`max-width:670px;margin-top:16px;color:var(--color-text-secondary);font-size:15px;line-height:1.7;letter-spacing:-.012em;`;
-const PeriodSummary = styled.div`min-width:126px;padding:0 0 6px 18px;border-left:1px solid var(--color-border-strong);display:grid;gap:4px;span{color:var(--color-text-secondary);font-size:12px;}strong{color:var(--color-text-primary);font-size:24px;font-weight:710;letter-spacing:-.04em;}`;
-const Workspace = styled.div`display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:0;align-items:start;border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border);@media(max-width:860px){grid-template-columns:1fr;}`;
-const PrimaryColumn = styled.div`display:grid;gap:24px;padding:32px 34px 34px 0;@media(max-width:860px){padding-right:0;}@media(max-width:560px){padding-top:26px;}`;
-const RequestCard = styled.section`background:transparent;`;
-const SectionHeader = styled.header`display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:22px;`;
+const Main = styled.main`width:min(940px,calc(100% - 40px));margin:0 auto;padding:42px 0 28px;@media(max-width:720px){padding-top:30px;}`;
+const StepNavigation = styled.nav`width:min(720px,100%);margin-bottom:34px;ol{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--color-border);}`;
+const StepItem = styled.li<{ $active:boolean;$complete:boolean }>`position:relative;padding-bottom:12px;color:${p=>p.$active?'var(--color-text-primary)':p.$complete?'var(--color-action)':'var(--color-text-secondary)'};&::after{content:'';position:absolute;right:0;bottom:-1px;left:0;height:2px;background:${p=>p.$active?'var(--color-action)':'transparent'};}`;
+const StepLink = styled(Link)`display:flex;align-items:center;gap:8px;font-size:12px;font-weight:650;span{width:19px;height:19px;display:grid;place-items:center;border:1px solid currentColor;border-radius:50%;font-size:10px;}@media(max-width:460px){gap:5px;font-size:11px;}`;
+const RecordHeader = styled.header`display:flex;align-items:flex-start;justify-content:space-between;gap:28px;padding-bottom:26px;@media(max-width:560px){gap:16px;}`;
+const RecordHeading = styled.div`min-width:0;`;
+const PageTitle = styled.h1`color:var(--color-text-primary);font-size:clamp(27px,4vw,34px);font-weight:720;line-height:1.2;letter-spacing:-.044em;`;
+const PageDescription = styled.p`margin-top:8px;color:var(--color-text-secondary);font-size:14px;line-height:1.6;letter-spacing:-.012em;`;
+const RecordStatus = styled.span<{ $approved:boolean;$error:boolean }>`flex:0 0 auto;margin-top:4px;padding:5px 8px;border-radius:3px;color:${p=>p.$error?'var(--color-danger)':p.$approved?'var(--color-success)':'var(--color-warning)'};background:${p=>p.$error?'var(--color-danger-bg)':p.$approved?'var(--color-success-bg)':'var(--color-warning-bg)'};font-size:12px;font-weight:720;`;
+const RecordMeta = styled.dl`display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--color-border-strong);border-bottom:1px solid var(--color-border);@media(max-width:600px){grid-template-columns:1fr;}`;
+const MetaItem = styled.div`min-height:74px;padding:16px 20px;border-right:1px solid var(--color-border);display:grid;align-content:center;gap:4px;&:first-of-type{padding-left:0;}&:last-of-type{border-right:0;}dt{color:var(--color-text-secondary);font-size:11px;}dd{color:var(--color-text-primary);font-size:14px;font-weight:650;}@media(max-width:600px){min-height:58px;padding:11px 0;border-right:0;border-bottom:1px solid var(--color-border);&:last-of-type{border-bottom:0;}}`;
+const Content = styled.div`width:min(720px,100%);display:grid;gap:38px;padding-top:38px;`;
+const RecordSection = styled.section`background:transparent;`;
+const IntroStatement = styled.section`padding:22px 0;border-top:1px solid var(--color-border-strong);border-bottom:1px solid var(--color-border);display:grid;gap:6px;strong{color:var(--color-text-primary);font-size:20px;font-weight:700;letter-spacing:-.035em;}span{color:var(--color-text-secondary);font-size:13px;line-height:1.6;}`;
+const ExplanationList = styled.ol`border-bottom:1px solid var(--color-border);`;
+const ExplanationRow = styled.li`display:grid;grid-template-columns:240px minmax(0,1fr);gap:24px;padding:18px 4px;border-bottom:1px solid var(--color-border);&:last-of-type{border-bottom:0;}strong{color:var(--color-text-primary);font-size:13px;font-weight:660;}span{color:var(--color-text-secondary);font-size:12px;line-height:1.55;}@media(max-width:560px){grid-template-columns:1fr;gap:5px;}`;
+const DisclosureGroup = styled.div`display:grid;border-top:1px solid var(--color-border);`;
+const NativeDisclosure = styled.details`border-bottom:1px solid var(--color-border);summary{padding:15px 4px;color:var(--color-text-primary);font-size:13px;font-weight:650;cursor:pointer;}p{max-width:620px;padding:0 4px 16px;color:var(--color-text-secondary);font-size:12px;line-height:1.65;}`;
+const PageActions = styled.div`display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-top:2px;`;
+const PrimaryLink = styled(Link)`min-height:44px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;color:var(--color-on-action);background:var(--color-action);font-size:13px;font-weight:720;&:hover{background:var(--color-action-hover);}`;
+const BackLink = styled(Link)`min-height:44px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;color:var(--color-text-secondary);font-size:12px;font-weight:620;&:hover{color:var(--color-text-primary);}`;
 const SectionTitle = styled.h2`color:var(--color-text-primary);font-size:18px;font-weight:700;letter-spacing:-.035em;`;
-const SectionDescription = styled.p`margin-top:4px;color:var(--color-text-secondary);font-size:12px;`;
-const PrivateBadge = styled.span`padding-top:3px;color:var(--color-text-secondary);font-size:12px;font-weight:560;white-space:nowrap;`;
 const CaseList = styled.div`border-top:1px solid var(--color-border);`;
-const CaseButton = styled.button<{ $selected:boolean }>`width:100%;min-height:78px;padding:14px 12px;display:flex;align-items:center;border:0;border-bottom:1px solid var(--color-border);border-radius:0;color:var(--color-text-primary);background:${p=>p.$selected?'var(--color-action-subtle)':'transparent'};text-align:left;cursor:pointer;transition:background 160ms ease;&:hover:not(:disabled){background:var(--color-action-subtle-hover);}&:disabled{opacity:.46;cursor:not-allowed;}`;
+const CaseButton = styled.button<{ $selected:boolean }>`width:100%;min-height:76px;padding:13px 10px;display:flex;align-items:center;border:0;border-bottom:1px solid var(--color-border);border-radius:0;color:var(--color-text-primary);background:${p=>p.$selected?'var(--color-action-subtle)':'transparent'};text-align:left;cursor:pointer;transition:background 120ms ease;&:hover:not(:disabled){background:var(--color-action-subtle-hover);}&:disabled{opacity:.46;cursor:not-allowed;}`;
 const RadioMark = styled.span<{ $selected:boolean }>`width:21px;height:21px;display:grid;place-items:center;flex:0 0 auto;margin-right:12px;border:1px solid ${p=>p.$selected?'var(--color-action)':'var(--color-border-strong)'};border-radius:50%;color:var(--color-on-action);background:${p=>p.$selected?'var(--color-action)':'transparent'};`;
 const CaseCopy = styled.span`min-width:0;display:flex;flex-direction:column;gap:4px;`;
 const CaseName = styled.strong`font-size:14px;font-weight:670;`;
 const CaseHint = styled.span`color:var(--color-text-secondary);font-size:12px;`;
 const PrivateAmounts = styled.span`display:flex;gap:18px;margin-left:auto;padding-left:18px;>span{min-width:44px;display:grid;gap:2px;color:var(--color-text-primary);font:650 12px/1.2 ui-monospace,SFMono-Regular,monospace;}small{color:var(--color-text-secondary);font:500 9px/1.2 var(--font-pretendard);}@media(max-width:520px){display:none;}`;
-const PrivacyCallout = styled.div`display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:start;margin-top:16px;padding:15px 0;border-bottom:1px solid var(--color-border);color:var(--color-text-primary);>div{display:grid;gap:4px;}strong{font-size:13px;font-weight:650;}span{color:var(--color-text-secondary);font-size:12px;line-height:1.55;}@media(max-width:520px){grid-template-columns:1fr;gap:6px;}`;
-const PrivacyLabel = styled.span`padding-top:2px;color:var(--color-action);font-size:11px!important;font-weight:680;`;
+const SelectionNote = styled.p`margin-top:12px;color:var(--color-text-secondary);font-size:11px;line-height:1.6;`;
 const RequestFooter = styled.div`display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-top:22px;padding-top:20px;border-top:1px solid var(--color-border);@media(max-width:660px){align-items:stretch;flex-direction:column;}`;
 const RequestFootnote = styled.p`max-width:320px;color:var(--color-text-secondary);font-size:11px;line-height:1.55;`;
 const ActionGroup = styled.div`display:flex;justify-content:flex-end;gap:8px;@media(max-width:520px){flex-direction:column-reverse;}`;
@@ -349,19 +418,12 @@ const ConnectionNotice = styled(ResultBox)`border-color:var(--color-warning-bord
 const EvidenceBox = styled.div`margin-top:14px;padding:15px 0;border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border);`;
 const EvidenceTitle = styled.div`margin-bottom:10px;color:var(--color-text-primary);font-size:12px;font-weight:680;`;
 const EvidenceGrid = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;div{display:grid;gap:3px;min-width:0;}span{color:var(--color-text-secondary);font-size:10px;}code{overflow:hidden;color:var(--color-text-primary);font:11px ui-monospace,SFMono-Regular,monospace;text-overflow:ellipsis;white-space:nowrap;}@media(max-width:560px){grid-template-columns:1fr;}`;
-const Certificate = styled.article<{ $approved:boolean;$error:boolean }>`padding:28px;border:1px solid ${p=>p.$error?'var(--color-warning-border)':p.$approved?'var(--color-success-border)':'var(--color-border)'};border-radius:3px;background:var(--color-surface);@media(max-width:560px){padding:20px;}`;
-const CertificateHeader = styled.header`display:flex;align-items:flex-start;justify-content:space-between;gap:18px;`;
-const DocumentLabel = styled.div`color:var(--color-text-secondary);font-size:12px;font-weight:650;`;
-const DocumentId = styled.div`margin-top:5px;color:var(--color-text-primary);font:600 11px ui-monospace,SFMono-Regular,monospace;`;
-const StatusStamp = styled.div<{ $approved:boolean;$error:boolean }>`padding:7px 10px;border:1px solid currentColor;border-radius:2px;color:${p=>p.$error?'var(--color-warning)':p.$approved?'var(--color-success)':'var(--color-text-secondary)'};font-size:12px;font-weight:760;letter-spacing:.04em;`;
-const CertificateBody = styled.div`min-height:182px;display:flex;align-items:center;gap:20px;padding:34px 0 30px;@media(max-width:560px){align-items:flex-start;flex-direction:column;gap:15px;}`;
-const CertificateMark = styled.div<{ $approved:boolean;$error:boolean }>`width:54px;height:54px;display:grid;place-items:center;flex:0 0 auto;border:1px solid currentColor;border-radius:50%;color:${p=>p.$error?'var(--color-warning)':p.$approved?'var(--color-success)':'var(--color-text-secondary)'};background:${p=>p.$error?'var(--color-warning-bg)':p.$approved?'var(--color-success-bg)':'var(--color-surface-muted)'};`;
-const CertificateTitle = styled.h2`color:var(--color-text-primary);font-size:clamp(23px,3.4vw,34px);font-weight:720;line-height:1.25;letter-spacing:-.048em;`;
-const CertificateDescription = styled.p`max-width:560px;margin-top:9px;color:var(--color-text-secondary);font-size:13px;line-height:1.65;`;
-const CertificateRule = styled.div`display:flex;align-items:center;gap:12px;color:var(--color-text-secondary);font-size:10px;&::before,&::after{content:'';height:0;flex:1;border-top:1px dashed var(--color-border);}`;
-const CertificateFacts = styled.dl`display:grid;grid-template-columns:repeat(3,1fr);margin-top:22px;@media(max-width:560px){grid-template-columns:1fr;gap:13px;}`;
-const CertificateFact = styled.div`display:grid;gap:5px;padding:0 18px;border-right:1px solid var(--color-border);&:first-of-type{padding-left:0;}&:last-of-type{padding-right:0;border-right:0;}dt{color:var(--color-text-secondary);font-size:11px;}dd{color:var(--color-text-primary);font-size:14px;font-weight:680;}@media(max-width:560px){padding:0;border-right:0;}`;
-const CertificateNote = styled.p`margin-top:24px;padding-top:16px;border-top:1px solid var(--color-border);color:var(--color-text-secondary);font-size:11px;line-height:1.6;`;
+const SummaryList = styled.dl`margin-top:16px;border-top:1px solid var(--color-border);`;
+const SummaryRow = styled.div`display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;padding:14px 4px;border-bottom:1px solid var(--color-border);dt{color:var(--color-text-secondary);font-size:12px;font-weight:560;}dd{color:var(--color-text-primary);font-size:13px;line-height:1.55;}@media(max-width:520px){grid-template-columns:1fr;gap:4px;padding:12px 2px;}`;
+const PrivacyNotice = styled.div`margin-top:16px;padding:14px 16px;border-left:3px solid var(--color-action);background:var(--color-action-subtle);display:grid;gap:3px;strong{color:var(--color-text-primary);font-size:12px;font-weight:680;}span{color:var(--color-text-secondary);font-size:11px;line-height:1.55;}`;
+const StatusNotice = styled.section<{ $approved:boolean;$error:boolean }>`padding:17px 18px;border-left:3px solid ${p=>p.$error?'var(--color-danger)':p.$approved?'var(--color-success)':'var(--color-warning)'};background:${p=>p.$error?'var(--color-danger-bg)':p.$approved?'var(--color-success-bg)':'var(--color-warning-bg)'};display:grid;gap:4px;strong{color:var(--color-text-primary);font-size:15px;font-weight:700;}span{color:var(--color-text-secondary);font-size:12px;line-height:1.55;}`;
+const HistoryList = styled.ol`margin-top:16px;border-top:1px solid var(--color-border);`;
+const HistoryRow = styled.li`display:grid;grid-template-columns:118px minmax(0,1fr);gap:20px;padding:14px 4px;border-bottom:1px solid var(--color-border);time{color:var(--color-text-secondary);font-size:11px;}div{min-width:0;display:grid;gap:3px;}strong{color:var(--color-text-primary);font-size:13px;font-weight:650;}span{color:var(--color-text-secondary);font-size:12px;}code{overflow:hidden;color:var(--color-text-secondary);font:11px ui-monospace,SFMono-Regular,monospace;text-overflow:ellipsis;white-space:nowrap;}@media(max-width:520px){grid-template-columns:1fr;gap:4px;}`;
 const LedgerDisclosure = styled.section`border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border);`;
 const DisclosureButton = styled.button`width:100%;min-height:62px;padding:12px 4px;display:flex;align-items:center;justify-content:space-between;gap:16px;border:0;color:var(--color-text-primary);background:transparent;text-align:left;cursor:pointer;>span{display:grid;gap:3px;}strong{font-size:13px;font-weight:660;}small{color:var(--color-text-secondary);font-size:11px;}svg{color:var(--color-text-secondary);transition:transform 160ms ease;}&:hover{background:var(--color-surface-muted);}`;
 const LedgerDetail = styled.div`display:grid;gap:7px;padding:0 16px 16px;`;
@@ -369,17 +431,5 @@ const DetailItem = styled.div`min-height:54px;padding:10px 0;display:flex;align-
 const SmallLabel = styled.span`color:var(--color-text-secondary);font-size:10px;`;
 const CodeText = styled.code`color:var(--color-text-primary);font:10px ui-monospace,SFMono-Regular,monospace;word-break:break-all;`;
 const CopyButton = styled.button`width:30px;height:30px;display:grid;place-items:center;flex:0 0 auto;border:0;border-radius:4px;color:var(--color-text-secondary);background:var(--color-surface-muted);cursor:pointer;&:hover{color:var(--color-action);}`;
-const SideColumn = styled.aside`display:grid;padding:32px 0 34px 32px;border-left:1px solid var(--color-border);@media(max-width:860px){padding:28px 0 0;border-top:1px solid var(--color-border);border-left:0;}`;
-const PolicyCard = styled.section`padding:0 0 26px;border-bottom:1px solid var(--color-border);`;
-const SideLabel = styled.div`margin-bottom:7px;color:var(--color-text-secondary);font-size:11px;font-weight:650;`;
-const PolicyTitle = styled.h2`color:var(--color-text-primary);font-size:16px;font-weight:690;letter-spacing:-.03em;`;
-const Formula = styled.div`display:flex;align-items:center;justify-content:flex-start;gap:14px;margin:18px 0 12px;padding:14px 0;border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border);color:var(--color-text-primary);font:650 17px ui-monospace,SFMono-Regular,monospace;span:first-of-type{color:var(--color-action);}b{color:var(--color-text-secondary);font-weight:450;}`;
-const PolicyDescription = styled.p`color:var(--color-text-secondary);font-size:12px;line-height:1.65;`;
-const ScopeCard = styled.section`padding:26px 0;border-bottom:1px solid var(--color-border);`;
-const ScopeList = styled.div`display:grid;gap:16px;margin-top:15px;`;
-const ScopeItem = styled.div`display:grid;grid-template-columns:48px 1fr;align-items:start;gap:10px;>div{display:grid;gap:4px;}strong{color:var(--color-text-primary);font-size:12px;font-weight:650;}span{color:var(--color-text-secondary);font-size:11px;line-height:1.5;}`;
-const ScopeMark = styled.span<{ $private:boolean }>`padding-top:1px;color:${p=>p.$private?'var(--color-text-secondary)':'var(--color-success)'}!important;font-size:11px!important;font-weight:700;line-height:1.5;`;
-const LedgerSummary = styled.section`padding:26px 0 0;`;
-const LedgerConnection = styled.div<{ $error:boolean }>`display:flex;align-items:flex-start;gap:10px;margin-top:14px;${LiveDot}{margin-top:5px;}div{display:grid;gap:3px;}strong{color:${p=>p.$error?'var(--color-danger)':'var(--color-text-primary)'};font-size:12px;font-weight:650;}span{color:var(--color-text-secondary);font-size:11px;line-height:1.5;}`;
-const PageFooter = styled.footer`min-height:54px;display:flex;align-items:center;justify-content:space-between;color:var(--color-text-secondary);font-size:11px;`;
+const PageFooter = styled.footer`width:min(720px,100%);min-height:54px;margin-top:10px;display:flex;align-items:center;justify-content:space-between;color:var(--color-text-secondary);font-size:11px;`;
 const ResetButton = styled.button`display:flex;align-items:center;gap:6px;border:0;color:var(--color-text-secondary);background:transparent;font-size:11px;cursor:pointer;&:hover:not(:disabled){color:var(--color-action);}&:disabled{opacity:.4;cursor:not-allowed;}`;
