@@ -10,27 +10,27 @@ import { SiteHeader } from '@/components/SiteHeader';
 const processSteps = [
   {
     label: '자료 등록',
-    heading: '재무자료는 지문으로 남습니다',
+    heading: '검증 자료는 지문으로 등록됩니다',
     title: '검증할 기간과 자료의 지문을 등록합니다',
-    body: '이번에 확인할 기간을 정하고, 회사 재무자료로 만든 고유한 지문을 원장에 등록합니다. 이 지문만으로는 원래 금액을 알아낼 수 없습니다.',
+    body: '이번에 확인할 기간을 정하고, 검증 자료로 만든 고유한 지문을 원장에 등록합니다. 이 지문만으로는 원래 금액을 알아낼 수 없습니다.',
   },
   {
     label: '회사 요청',
-    heading: '실제 금액은 회사 안에 머뭅니다',
+    heading: '실제 금액은 공개 기록에 남지 않습니다',
     title: '회사는 실제 금액으로 검증을 요청합니다',
     body: '회사는 보유 현금과 향후 30일 지급예정액을 선택합니다. 실제 수치는 증명을 만드는 동안에만 사용되고 공개 기록에는 포함되지 않습니다.',
   },
   {
     label: '비공개 검증',
-    heading: '금액 없이 약정 충족을 확인합니다',
+    heading: '금액을 공개하지 않고 약정 충족을 확인합니다',
     title: '등록된 자료와 약정 조건을 함께 검사합니다',
-    body: '회사 권한, 현재 기간, 등록한 자료와의 일치 여부를 먼저 확인합니다. 이후 보유 현금이 지급예정액의 120% 이상인지 금액을 공개하지 않은 채 증명합니다.',
+    body: '회사 권한, 현재 기간, 등록한 자료와의 일치 여부를 먼저 확인합니다. 이후 실제 금액을 공개하지 않고 약정에서 정한 기준을 충족하는지 증명합니다.',
   },
   {
     label: '결과 기록',
     heading: '확인된 결과만 원장에 기록합니다',
-    title: '금융기관에는 검증 결과만 전달됩니다',
-    body: '조건을 충족하면 승인된 기간과 거래 기록이 원장에 남습니다. 충족하지 못하면 승인은 기록되지 않으며, 두 경우 모두 실제 금액은 공개되지 않습니다.',
+    title: '금융기관은 검증 결과만 확인합니다',
+    body: '조건을 충족하면 약정 충족 기간과 거래 기록이 원장에 남습니다. 금융기관은 이 기록에서 약정 충족 여부를 확인하며 실제 금액은 볼 수 없습니다.',
   },
 ] as const;
 
@@ -98,7 +98,7 @@ export function HomeHero() {
               <ReceiptNumber>CW · 0001</ReceiptNumber>
             </ReceiptHeader>
             <ReceiptResult>
-              <span>약정 기준</span>
+              <span>약정 상태</span>
               <strong>충족</strong>
               <ReceiptMark aria-hidden="true">확인</ReceiptMark>
             </ReceiptResult>
@@ -106,7 +106,7 @@ export function HomeHero() {
               <div><dt>검증 기간</dt><dd>1기</dd></div>
               <div><dt>확인 항목</dt><dd>등록된 금융약정</dd></div>
               <div><dt>실제 금액</dt><dd><PrivateValue>비공개</PrivateValue></dd></div>
-              <div><dt>원장 기록</dt><dd><ReceiptHash>000de9…1180</ReceiptHash></dd></div>
+              <div><dt>확인 기록</dt><dd><ReceiptHash>000de9…1180</ReceiptHash></dd></div>
             </ReceiptDetails>
             <ReceiptFoot>금액을 공개하지 않고 조건 충족 여부만 확인했습니다.</ReceiptFoot>
           </VerificationReceipt>
@@ -141,7 +141,6 @@ export function HomeHero() {
         <CallToAction aria-labelledby="cta-title">
           <CtaCopy>
             <CtaTitle id="cta-title"><span>재무정보 공개 없이</span>{' '}<span>약정 검증을 해볼까요?</span></CtaTitle>
-            <CtaBody>기업 담당자는 검증을 요청할 수 있습니다. 완료된 검증을 확인하려면 결과 확인으로 이동합니다.</CtaBody>
           </CtaCopy>
           <CtaActions>
             <PrimaryAction href="/request">검증 요청 시작</PrimaryAction>
@@ -157,10 +156,10 @@ export function HomeHero() {
 function ProcessVisual({ step }: { step: number }) {
   return <VisualContent key={step}>
     <VisualHeader><span>검증 흐름</span><strong>{String(step + 1).padStart(2, '0')} / 04</strong></VisualHeader>
-    {step === 0 && <VisualBody><VisualTitle>1기 자료 등록</VisualTitle><VisualRows><VisualRow><span>검증 기간</span><strong>1기</strong></VisualRow><VisualRow><span>재무자료</span><code>고유 지문으로 변환</code></VisualRow><VisualRow><span>실제 금액</span><em>기록하지 않음</em></VisualRow></VisualRows></VisualBody>}
+    {step === 0 && <VisualBody><VisualTitle>1기 자료 등록</VisualTitle><VisualRows><VisualRow><span>검증 기간</span><strong>1기</strong></VisualRow><VisualRow><span>검증 자료</span><code>고유 지문으로 변환</code></VisualRow><VisualRow><span>실제 금액</span><em>공개 기록에 없음</em></VisualRow></VisualRows></VisualBody>}
     {step === 1 && <VisualBody><VisualTitle>회사 내부 입력</VisualTitle><VisualRows><VisualRow><span>보유 현금</span><Redacted aria-label="비공개">██████</Redacted></VisualRow><VisualRow><span>30일 지급예정액</span><Redacted aria-label="비공개">██████</Redacted></VisualRow><VisualRow><span>사용 범위</span><em>증명 생성에만 사용</em></VisualRow></VisualRows></VisualBody>}
-    {step === 2 && <VisualBody><VisualTitle>검증 항목</VisualTitle><CheckList><li><i>✓</i>회사 권한</li><li><i>✓</i>현재 기간</li><li><i>✓</i>등록 자료 일치</li><li><i>✓</i>현금 ≥ 지급예정액 × 1.2</li></CheckList></VisualBody>}
-    {step === 3 && <VisualBody><VisualTitle>금융기관 확인 결과</VisualTitle><FinalResult>기준 충족</FinalResult><VisualRows><VisualRow><span>승인된 기간</span><strong>1기</strong></VisualRow><VisualRow><span>실제 금액</span><em>공개되지 않음</em></VisualRow></VisualRows></VisualBody>}
+    {step === 2 && <VisualBody><VisualTitle>검증 항목</VisualTitle><CheckList><li><i>✓</i>회사 권한</li><li><i>✓</i>현재 기간</li><li><i>✓</i>등록 자료 일치</li><li><i>✓</i>약정 기준 충족</li></CheckList></VisualBody>}
+    {step === 3 && <VisualBody><VisualTitle>금융기관 확인 결과</VisualTitle><FinalResult>기준 충족</FinalResult><VisualRows><VisualRow><span>약정 충족 기간</span><strong>1기</strong></VisualRow><VisualRow><span>실제 금액</span><em>공개되지 않음</em></VisualRow></VisualRows></VisualBody>}
   </VisualContent>;
 }
 
@@ -232,5 +231,4 @@ const StepBody = styled.p`max-width:500px;margin-top:16px;color:var(--color-text
 const CallToAction = styled.section`margin-top:clamp(104px,14vw,168px);padding:clamp(42px,6vw,64px);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:56px;background:var(--color-chrome);border-top:1px solid var(--color-border-strong);border-bottom:1px solid var(--color-border);@media(max-width:760px){grid-template-columns:1fr;align-items:start;gap:30px;}@media(max-width:520px){margin-top:88px;padding:36px 24px;}`;
 const CtaCopy = styled.div`max-width:660px;`;
 const CtaTitle = styled.h2`color:var(--color-text-primary);font-size:clamp(30px,4vw,43px);font-weight:720;line-height:1.24;letter-spacing:-.05em;word-break:keep-all;span{display:block;}@media(max-width:760px){span{display:inline;}}`;
-const CtaBody = styled.p`max-width:600px;margin-top:18px;color:var(--color-text-secondary);font-size:14px;line-height:1.8;letter-spacing:-.012em;word-break:keep-all;`;
 const CtaActions = styled.div`display:flex;align-items:center;gap:10px;white-space:nowrap;@media(max-width:430px){align-items:stretch;flex-direction:column;white-space:normal;}`;

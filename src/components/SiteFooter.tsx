@@ -9,7 +9,7 @@ export function SiteFooter() {
       <FooterInner>
         <Identity>
           <Brand href="/">Covenant Watch</Brand>
-          <Tagline>금액은 숨기고, 결과만 확인합니다.</Tagline>
+          <Tagline>금액은 공개하지 않고, 결과만 확인합니다.</Tagline>
           <Copyright>© 2026 MvM. All rights reserved.</Copyright>
         </Identity>
         <FooterNavigation aria-label="하단 메뉴">
