@@ -11,6 +11,7 @@ services:
     volumes:
       - .:/workspace
       - covenant_node_modules:/workspace/node_modules
+      - covenant_contract_node_modules:/workspace/contract/node_modules
       - covenant_web_next:/workspace/.next
     depends_on: !reset []
 
@@ -25,4 +26,5 @@ services:
 
 volumes:
   covenant_node_modules:
+  covenant_contract_node_modules:
   covenant_web_next:
