@@ -135,6 +135,17 @@ export function HomeHero() {
             </StepList>
           </ProcessGrid>
         </ProcessSection>
+
+        <CallToAction aria-labelledby="cta-title">
+          <CtaCopy>
+            <CtaTitle id="cta-title"><span>재무정보 공개 없이</span>{' '}<span>약정 검증을 해볼까요?</span></CtaTitle>
+            <CtaBody>기업 담당자는 검증을 요청할 수 있습니다. 완료된 검증을 확인하려면 결과 확인으로 이동합니다.</CtaBody>
+          </CtaCopy>
+          <CtaActions>
+            <PrimaryAction href="/request">검증 요청 시작</PrimaryAction>
+            <SecondaryAction href="/status">검증 결과 확인</SecondaryAction>
+          </CtaActions>
+        </CallToAction>
       </Main>
       <SiteFooter />
     </Page>
@@ -216,3 +227,8 @@ const StepIndex = styled.span`padding-top:3px;color:var(--color-action);font:650
 const StepLabel = styled.p`margin-bottom:9px;color:var(--color-text-secondary);font-size:11px;font-weight:650;`;
 const StepTitle = styled.h3`max-width:470px;color:var(--color-text-primary);font-size:clamp(23px,3vw,32px);font-weight:700;line-height:1.28;letter-spacing:-.045em;word-break:keep-all;`;
 const StepBody = styled.p`max-width:500px;margin-top:16px;color:var(--color-text-secondary);font-size:14px;line-height:1.8;letter-spacing:-.012em;word-break:keep-all;`;
+const CallToAction = styled.section`margin-top:clamp(104px,14vw,168px);padding:clamp(42px,6vw,64px);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:56px;background:var(--color-chrome);border-top:1px solid var(--color-border-strong);border-bottom:1px solid var(--color-border);@media(max-width:760px){grid-template-columns:1fr;align-items:start;gap:30px;}@media(max-width:520px){margin-top:88px;padding:36px 24px;}`;
+const CtaCopy = styled.div`max-width:660px;`;
+const CtaTitle = styled.h2`color:var(--color-text-primary);font-size:clamp(30px,4vw,43px);font-weight:720;line-height:1.24;letter-spacing:-.05em;word-break:keep-all;span{display:block;}@media(max-width:760px){span{display:inline;}}`;
+const CtaBody = styled.p`max-width:600px;margin-top:18px;color:var(--color-text-secondary);font-size:14px;line-height:1.8;letter-spacing:-.012em;word-break:keep-all;`;
+const CtaActions = styled.div`display:flex;align-items:center;gap:10px;white-space:nowrap;@media(max-width:430px){align-items:stretch;flex-direction:column;white-space:normal;}`;
