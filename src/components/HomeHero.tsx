@@ -76,6 +76,8 @@ export function HomeHero() {
     };
   }, []);
 
+  const activeProcessStep = processSteps[activeStep] ?? processSteps[0];
+
   return (
     <Page>
       <SiteHeader />
@@ -116,7 +118,7 @@ export function HomeHero() {
             <ProcessAside>
               <ProcessHeader>
                 <SectionLabel>작동 방식</SectionLabel>
-                <ProcessTitle key={activeStep} id="how-it-works-title">{processSteps[activeStep].heading}</ProcessTitle>
+                <ProcessTitle key={activeStep} id="how-it-works-title">{activeProcessStep.heading}</ProcessTitle>
               </ProcessHeader>
               <VisualPanel aria-hidden="true"><ProcessVisual step={activeStep} /></VisualPanel>
             </ProcessAside>
