@@ -19,16 +19,35 @@ const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'star
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverOutput = '';
+let sessionCookie = '';
 server.stdout.on('data', (chunk) => { serverOutput += chunk.toString(); });
 server.stderr.on('data', (chunk) => { serverOutput += chunk.toString(); });
 
 try {
   await waitUntilReady();
+  const protectedPage = await fetch(`${baseUrl}/request`, { redirect: 'manual' });
+  assert(protectedPage.status === 307 && protectedPage.headers.get('location') === '/login?next=%2Frequest', 'protected page did not redirect to login');
   const publicState = await api('/api/state');
   assert(publicState.status === 200, 'public state query failed');
   assert(publicState.body.state.currentRound === 1, 'public state DTO is missing nested ledger state');
   assert(typeof publicState.body.fetchedAt === 'string', 'public state DTO is missing fetchedAt');
   assert(publicState.body.cash === undefined && publicState.body.state.cash === undefined, 'public state exposed private cash');
+  const unauthorizedVerification = await api('/api/verify', {
+    method: 'POST',
+    body: JSON.stringify({ caseId: 'round-1-pass', requestId: 'e2e-unauthorized', expectedRound: 1 }),
+  });
+  assert(unauthorizedVerification.status === 401 && unauthorizedVerification.body.code === 'AUTH_REQUIRED', 'demo authentication did not protect verification');
+  const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id: 'midnight', password: '1234', next: '/request' }),
+  });
+  const login = await loginResponse.json() as any;
+  const setCookie = loginResponse.headers.get('set-cookie');
+  assert(loginResponse.status === 200 && login.ok === true && setCookie, 'demo login failed');
+  sessionCookie = setCookie.split(';', 1)[0];
+  const authenticatedPage = await fetch(`${baseUrl}/request`, { headers: { cookie: sessionCookie }, redirect: 'manual' });
+  assert(authenticatedPage.status === 200, 'authenticated user could not open protected page');
   const unauthorizedReset = await api('/api/admin/reset', { method: 'POST' });
   assert(unauthorizedReset.status === 401 && unauthorizedReset.body.code === 'UNAUTHORIZED', 'operator authentication failed');
   const initial = await operatorApi('/api/admin/reset');
@@ -117,9 +136,11 @@ async function waitUntilReady() {
 }
 
 async function api(pathname: string, init?: RequestInit) {
+  const headers = { 'content-type': 'application/json', ...init?.headers } as Record<string, string>;
+  if (sessionCookie) headers.cookie = sessionCookie;
   const response = await fetch(`${baseUrl}${pathname}`, {
     ...init,
-    headers: { 'content-type': 'application/json', ...init?.headers },
+    headers,
   });
   return { status: response.status, body: await response.json() as any };
 }

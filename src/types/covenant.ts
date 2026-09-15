@@ -88,6 +88,7 @@ export interface ApiError {
   ok: false;
   code:
     | 'INVALID_REQUEST'
+    | 'AUTH_REQUIRED'
     | 'INTERNAL_ERROR'
     | 'CHAIN_NOT_CONFIGURED'
     | 'STATE_CHANGED'
